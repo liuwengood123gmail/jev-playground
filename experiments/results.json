@@ -1,0 +1,107 @@
+{
+  "models": {
+    "jev-latest": {
+      "noul": {
+        "die7": 0.02,
+        "d36": 0.165,
+        "ace": 0.33,
+        "digit": 0.18,
+        "3heads": 0.225,
+        "die1": 0.275,
+        "2heads": 0.27,
+        "heart": 0.36,
+        "coin": 0.515,
+        "mere24": 0.475,
+        "mere4": 0.51,
+        "die_le5": 0.76,
+        "le90": 0.875,
+        "notace": 0.865,
+        "die_le6": 0.98,
+        "br_famous": 0.125,
+        "br_novel": 0.13,
+        "br_freq": 0.19,
+        "linda_A": 0.185,
+        "linda_AB": 0.14,
+        "bill_A": 0.09,
+        "bill_AB": 0.08,
+        "gambler": 0.5,
+        "hothand": 0.495,
+        "surv_one": 0.10500000000000001,
+        "surv_many": 0.795,
+        "monty3": 0.685,
+        "monty100": 0.96,
+        "prisoners": 0.46,
+        "bday23": 0.59,
+        "bday30": 0.7050000000000001,
+        "bday50": 0.915,
+        "twochild": 0.33,
+        "frame_pos": 0.895,
+        "frame_neg": 0.88,
+        "anchor_hi": 0.29000000000000004,
+        "anchor_lo": 0.305
+      },
+      "hospital": {
+        "type": "choice",
+        "choice": "small",
+        "confidence": 0.99,
+        "probabilities": {
+          "small": 1.0,
+          "large": 0.0,
+          "same": 0.0
+        }
+      }
+    },
+    "jev-preview": {
+      "noul": {
+        "die7": 0.02,
+        "d36": 0.16,
+        "ace": 0.33,
+        "digit": 0.2,
+        "3heads": 0.225,
+        "die1": 0.265,
+        "2heads": 0.27,
+        "heart": 0.365,
+        "coin": 0.515,
+        "mere24": 0.475,
+        "mere4": 0.505,
+        "die_le5": 0.76,
+        "le90": 0.87,
+        "notace": 0.865,
+        "die_le6": 0.98,
+        "br_famous": 0.12,
+        "br_novel": 0.13,
+        "br_freq": 0.16,
+        "linda_A": 0.19,
+        "linda_AB": 0.135,
+        "bill_A": 0.09,
+        "bill_AB": 0.07500000000000001,
+        "gambler": 0.505,
+        "hothand": 0.485,
+        "surv_one": 0.12,
+        "surv_many": 0.765,
+        "monty3": 0.685,
+        "monty100": 0.955,
+        "prisoners": 0.45999999999999996,
+        "bday23": 0.595,
+        "bday30": 0.7,
+        "bday50": 0.915,
+        "twochild": 0.325,
+        "frame_pos": 0.89,
+        "frame_neg": 0.875,
+        "anchor_hi": 0.295,
+        "anchor_lo": 0.33
+      },
+      "hospital": {
+        "type": "choice",
+        "choice": "small",
+        "confidence": 0.99,
+        "probabilities": {
+          "large": 0.01,
+          "small": 0.99,
+          "same": 0.0
+        }
+      }
+    }
+  },
+  "generated": "2026-09-20 20:18"
+}
