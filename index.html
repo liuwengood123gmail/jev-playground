@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jev Playground</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#1b1f27; --muted:#6b7280; --line:#e3e6ea;
+  --accent:#4f46e5; --accent-soft:#eef0ff; --ok:#16a34a; --warn:#d97706; --bad:#dc2626;
+  --code:#f1f3f6; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --black-stone:#111; --white-stone:#fafafa; --board:#e8c58a;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#0f1218; --panel:#171b23; --ink:#e6e8ec; --muted:#9aa3b2; --line:#2a3040;
+    --accent:#8b85ff; --accent-soft:#232647; --code:#0d1016; --board:#c9a86a; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+header{position:sticky;top:0;z-index:10;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+header h1{font-size:17px;margin:0;letter-spacing:.2px}
+header h1 span{color:var(--muted);font-weight:400;font-size:13px;margin-left:8px}
+nav{display:flex;gap:2px;flex-wrap:wrap}
+nav button{background:none;border:0;padding:6px 10px;border-radius:6px;color:var(--muted);cursor:pointer;font-size:13px}
+nav button.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.spacer{flex:1}
+.status{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)}
+select,input[type=text],input[type=number],textarea{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+textarea{width:100%;font-family:var(--mono);font-size:12.5px;resize:vertical}
+button.btn{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 12px;border-radius:6px;cursor:pointer}
+button.btn:hover{border-color:var(--accent)}
+button.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button.btn.small{padding:3px 8px;font-size:12px}
+button.btn:disabled{opacity:.5;cursor:default}
+main{max-width:1240px;margin:0 auto;padding:20px}
+section.tab{display:none} section.tab.active{display:block}
+h2{font-size:20px;margin:6px 0 4px} h3{font-size:15px;margin:18px 0 8px}
+.lead{color:var(--muted);margin:0 0 16px;max-width:900px}
+.grid{display:grid;gap:14px} .g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))} .g3{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card h4{margin:0 0 6px;font-size:14px}
+.tag{display:inline-block;font-family:var(--mono);font-size:11.5px;padding:1px 6px;border-radius:4px;background:var(--accent-soft);color:var(--accent)}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:var(--mono);font-size:12px;overflow:auto;margin:6px 0}
+code{font-family:var(--mono);font-size:12.5px;background:var(--code);padding:0 4px;border-radius:3px}
+table{border-collapse:collapse;width:100%} th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top} th{color:var(--muted);font-weight:600;font-size:12px}
+.muted{color:var(--muted)} .small{font-size:12px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600}
+.pill.auto{background:#dcfce7;color:#166534} .pill.confirm{background:#fef3c7;color:#92400e} .pill.human{background:#fee2e2;color:#991b1b} .pill.none{background:var(--code);color:var(--muted)}
+@media (prefers-color-scheme: dark){ .pill.auto{background:#14532d;color:#bbf7d0} .pill.confirm{background:#78350f;color:#fde68a} .pill.human{background:#7f1d1d;color:#fecaca} }
+
+/* principle diagram */
+.flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:10px;align-items:center}
+.flow .box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+.flow .arrow{font-size:26px;color:var(--muted)}
+.slots{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.slot{display:grid;grid-template-columns:90px 1fr 40px;gap:8px;align-items:center;font-family:var(--mono);font-size:12px}
+.bar{height:10px;background:var(--code);border-radius:5px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:5px;transition:width .6s}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.steps{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.steps span{background:var(--code);padding:4px 8px;border-radius:6px;font-size:12px}
+.steps em{color:var(--muted);font-style:normal}
+@media (max-width:800px){.flow{grid-template-columns:1fr}.flow .arrow{transform:rotate(90deg);text-align:center}.vs{grid-template-columns:1fr}}
+
+/* playground */
+.pg{display:grid;grid-template-columns:minmax(360px,1fr) minmax(360px,1fr);gap:16px}
+@media (max-width:900px){.pg{grid-template-columns:1fr}}
+.qcard{border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px;background:var(--bg)}
+.qcard .hd{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.qcard input[type=text]{width:100%}
+.qcard label{font-size:12px;color:var(--muted);display:block;margin-top:6px}
+.crit{display:grid;grid-template-columns:120px 1fr auto;gap:6px;margin-top:4px}
+.crit.score{grid-template-columns:36px 1fr auto}
+.summary{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);padding:8px 0;border-bottom:1px solid var(--line);margin-bottom:10px}
+.summary b{color:var(--ink);font-family:var(--mono)}
+.ans{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px;background:var(--panel)}
+.ans .hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.ans .hd b{font-family:var(--mono)}
+.pbars{display:flex;flex-direction:column;gap:5px}
+.pbar{display:grid;grid-template-columns:minmax(80px,180px) 1fr 44px;gap:8px;align-items:center;font-size:12.5px}
+.pbar .k{font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pbar.win .k{color:var(--accent);font-weight:700}
+.pbar.win .bar i{background:var(--accent)} .pbar .bar i{background:#a5b4fc}
+.ring{width:64px;height:64px}
+.ring text{font:700 13px var(--mono);fill:var(--ink)}
+.gauge{width:170px;height:100px}
+.axis{position:relative;height:26px;margin:24px 4px 2px}
+.axis .line{position:absolute;left:0;right:0;top:12px;height:2px;background:var(--line)}
+.axis .tick{position:absolute;top:6px;width:2px;height:14px;background:var(--muted);transform:translateX(-1px)}
+.axis .tl{position:absolute;top:20px;font-size:11px;color:var(--muted);transform:translateX(-50%);font-family:var(--mono)}
+.axis .mk{position:absolute;top:-2px;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:12px solid var(--accent);transform:translateX(-8px);transition:left .5s}
+.axis .mv{position:absolute;top:-20px;font:700 12px var(--mono);color:var(--accent);transform:translateX(-50%)}
+.route{display:flex;gap:8px;align-items:center;font-size:12.5px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.route input[type=range]{width:110px}
+.hist li{cursor:pointer;padding:5px 6px;border-bottom:1px solid var(--line);font-size:12.5px;display:flex;gap:10px}
+.hist li:hover{background:var(--accent-soft)} .hist{list-style:none;margin:0;padding:0;max-height:220px;overflow:auto}
+.err{background:#fee2e2;color:#7f1d1d;border-radius:8px;padding:10px;font-family:var(--mono);font-size:12px;white-space:pre-wrap}
+
+/* news */
+.newsrow td:nth-child(2){max-width:380px}
+.sent{display:inline-block;width:110px;height:10px;border-radius:5px;background:linear-gradient(90deg,#dc2626,#e5e7eb 50%,#16a34a);position:relative;vertical-align:middle}
+.sent i{position:absolute;top:-4px;width:4px;height:18px;background:var(--ink);border-radius:2px;transform:translateX(-2px)}
+.sig{font-family:var(--mono);font-weight:700}
+.sig.pos{color:var(--ok)} .sig.neg{color:var(--bad)}
+
+/* control */
+.devices{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.dev{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--panel);transition:box-shadow .3s}
+.dev.flash{box-shadow:0 0 0 3px var(--accent)}
+.dev .ic{font-size:26px} .dev .st{font-family:var(--mono);font-size:13px;font-weight:700}
+.dev.on{border-color:var(--ok)} .dev.locked{border-color:var(--ok)} .dev.unlocked{border-color:var(--bad)}
+.log{max-height:380px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.log .it{padding:8px 10px;border-bottom:1px solid var(--line);font-size:12.5px;display:grid;grid-template-columns:52px 1fr auto;gap:10px;align-items:start}
+.log .it .cmd{font-style:italic}
+.log .it .dec{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.spark{height:46px;width:100%}
+
+/* gomoku */
+.gm{display:grid;grid-template-columns:auto 1fr;gap:18px}
+@media (max-width:900px){.gm{grid-template-columns:1fr}}
+.board{display:grid;grid-template-columns:repeat(15,28px);grid-template-rows:repeat(15,28px);background:var(--board);padding:14px;border-radius:8px;position:relative;user-select:none;width:max-content}
+.cell{position:relative;cursor:pointer}
+.cell::before,.cell::after{content:"";position:absolute;background:#7a5a2a}
+.cell::before{left:50%;top:0;bottom:0;width:1px} .cell::after{top:50%;left:0;right:0;height:1px}
+.cell.t::before{top:50%} .cell.b::before{bottom:50%} .cell.l::after{left:50%} .cell.r::after{right:50%}
+.stone{position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;z-index:1;box-shadow:1px 1px 2px rgba(0,0,0,.5)}
+.stone.x{background:radial-gradient(circle at 35% 35%,#555,#000)} .stone.o{background:radial-gradient(circle at 35% 35%,#fff,#bbb)}
+.stone.last::after{content:"";position:absolute;left:8px;top:8px;width:6px;height:6px;border-radius:50%;background:var(--bad)}
+.ghost{position:absolute;left:6px;top:6px;width:16px;height:16px;border-radius:50%;border:3px dashed var(--accent);z-index:2;animation:pulse 1s infinite alternate}
+@keyframes pulse{to{transform:scale(1.25)}}
+.gt{display:grid;grid-template-columns:auto 1fr 1fr auto;gap:6px 14px;font-size:12.5px;align-items:center}
+.gt .k{color:var(--muted)} .gt .ok{color:var(--ok);font-weight:700} .gt .no{color:var(--bad);font-weight:700}
+.tally{font-family:var(--mono);font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Jev Playground <span>TypeSafe System One · 本地测试台</span></h1>
+  <nav id="nav">
+    <button data-tab="principle" class="active">原理</button>
+    <button data-tab="types">三种类型</button>
+    <button data-tab="playground">Playground</button>
+    <button data-tab="news">场景·新闻情绪</button>
+    <button data-tab="control">场景·实时控制</button>
+    <button data-tab="gomoku">场景·五子棋判断</button>
+    <button data-tab="pros">优势与局限</button>
+  </nav>
+  <div class="spacer"></div>
+  <div class="status">
+    <label>模型 <select id="model"><option>jev-latest</option><option>jev-preview</option></select></label>
+    <span class="dot" id="dot"></span><span id="statusText">检测代理…</span>
+  </div>
+</header>
+
+<main>
+<!-- ===================== 原理 ===================== -->
+<section class="tab active" id="tab-principle">
+  <h2>Jev 是怎么工作的</h2>
+  <p class="lead">Jev 是 TypeSafe 的 "System One" 模型：它<b>不生成文本</b>。你把当前状态（state）和几个<b>类型化的问题</b>一起发过去，它在<b>你事先给定的选项上分配概率</b>，返回类型化的答案。输出空间在请求里就已经定义死，所以不可能"编造"一个不存在的选项，也不需要解析自然语言。</p>
+
+  <div class="flow">
+    <div class="box">
+      <h4>① State（状态）</h4>
+      <div class="small muted">任意文本 / JSON：一条客服消息、一段新闻、传感器读数、一个棋盘……最多 32k tokens。</div>
+      <pre>"I was charged twice for order A-104."</pre>
+    </div>
+    <div class="arrow">→</div>
+    <div class="box">
+      <h4>② Questions（类型化问题）</h4>
+      <div class="small muted">每个问题声明类型和允许的输出集合。</div>
+      <pre>department: choice
+  billing   "Charges, refunds"
+  technical "Bugs, integrations"
+  sales     "Pricing, plans"</pre>
+    </div>
+    <div class="arrow">→</div>
+    <div class="box">
+      <h4>③ Jev：只在槽位上打分</h4>
+      <div class="small muted">一次前向计算，并行给每个候选打概率（不逐 token 生成）：</div>
+      <div class="slots" id="demoSlots">
+        <div class="slot"><span>billing</span><div class="bar"><i style="width:0"></i></div><span>0.94</span></div>
+        <div class="slot"><span>technical</span><div class="bar"><i style="width:0"></i></div><span>0.04</span></div>
+        <div class="slot"><span>sales</span><div class="bar"><i style="width:0"></i></div><span>0.02</span></div>
+      </div>
+      <div class="small" style="margin-top:8px">→ <code>choice: "billing"</code>, <code>confidence: 0.91</code></div>
+    </div>
+  </div>
+
+  <h3>和通用 LLM 做同一件事的路径对比</h3>
+  <div class="vs">
+    <div class="card">
+      <h4>通用 LLM（生成 → 解析）</h4>
+      <div class="steps"><span>写 prompt</span><em>→</em><span>逐 token 生成一段话</span><em>→</em><span>正则 / JSON 解析</span><em>→</em><span>校验枚举值</span><em>→</em><span>失败就重试</span><em>→</em><span>值</span></div>
+      <ul class="small muted" style="margin:10px 0 0 16px;padding:0">
+        <li>秒级延迟，输出 token 计费</li>
+        <li>可能返回不在集合里的答案、格式错误、多余解释</li>
+        <li>"置信度"要靠再问一遍或多次采样估计</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Jev（打分 → 直接用）</h4>
+      <div class="steps"><span>state + questions</span><em>→</em><span>并行打分</span><em>→</em><span>类型化值 + 概率 + 置信度</span></div>
+      <ul class="small muted" style="margin:10px 0 0 16px;padding:0">
+        <li>70–500 ms 端到端；输出免费，只按输入 $0.042 / M tokens 计</li>
+        <li>结构上不可能出现类型错误或编造选项（训练方法 RLCD 专门优化概率校准）</li>
+        <li><code>confidence</code> 是一等公民：代码用它决定"自动执行 / 请用户确认 / 转人工"</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>三个关键概念</h3>
+  <div class="grid g3">
+    <div class="card"><h4>校准概率（Calibrated）</h4><div class="small">当 Jev 说某个选项概率 0.8 时，在大量同类判断里它大约有 80% 是对的。概率是"可信的数字"，不是装饰。</div></div>
+    <div class="card"><h4>置信度（Confidence）</h4><div class="small">由概率分布的形状算出的 0–1 单值：集中在一个选项 → 高；分散 → 低。它回答的是"该不该按这个答案行动"，而不是"答案是什么"。</div></div>
+    <div class="card"><h4>扇出（Fan-out）</h4><div class="small">一次请求可带很多问题（包括"以防万一"的问题），state 只算一次 token。官方 cookbook 里 13 个问题合并成一次调用，比分开问便宜 12 倍、快 10 倍。</div></div>
+  </div>
+</section>
+
+<!-- ===================== 三种类型 ===================== -->
+<section class="tab" id="tab-types">
+  <h2>三种问题类型（Primitives）</h2>
+  <p class="lead">所有决策都由这三种原语组合而成。每张卡片右侧是官方接口的真实响应结构，点"试一下"会把该示例装进 Playground 并立即发送。</p>
+  <div class="grid g3" id="typeCards"></div>
+  <h3>如何选择</h3>
+  <table><thead><tr><th>你要问的是…</th><th>用</th><th>例子</th></tr></thead><tbody>
+    <tr><td>某个陈述是否成立</td><td><span class="tag">noul</span></td><td>"用户是否在要求退款？" "这段文字是否包含新信息？"</td></tr>
+    <tr><td>从一组互斥选项里挑一个（≤255 项）</td><td><span class="tag">choice</span></td><td>路由到哪个部门、意图分类、该调用哪个函数、五子棋下一步落在哪</td></tr>
+    <tr><td>在有序量表上定位（级别有描述）</td><td><span class="tag">score</span></td><td>情绪 0–4、严重程度 0–3、相关性 0–2；返回值可以是小数（如 1.9 = 介于 1 和 2 之间偏 2）</td></tr>
+  </tbody></table>
+  <p class="small muted">写法要点：<code>instructions</code> 里用反引号引用 state 的字段名（如 <code>`description`</code>）；选项/等级的描述越具体，概率越可信；state 目前英文最可靠。</p>
+</section>
+
+<!-- ===================== Playground ===================== -->
+<section class="tab" id="tab-playground">
+  <h2>Playground</h2>
+  <p class="lead">左边构建请求（表单和 JSON 双向同步），右边可视化结果。可以在一次请求里混合多个问题。</p>
+  <div class="pg">
+    <div>
+      <div class="row" style="margin-bottom:8px">
+        <label>预设 <select id="pgPreset"><option value="">— 选择 —</option></select></label>
+        <div class="spacer"></div>
+        <button class="btn small" id="pgClear">清空</button>
+      </div>
+      <label class="small muted">State（文本；以 <code>{</code> 或 <code>[</code> 开头会按 JSON 发送）</label>
+      <textarea id="pgState" rows="6"></textarea>
+      <div class="row" style="margin:10px 0 6px"><b>Questions</b><div class="spacer"></div>
+        <button class="btn small" data-add="noul">+ Noul</button><button class="btn small" data-add="choice">+ Choice</button><button class="btn small" data-add="score">+ Score</button></div>
+      <div id="pgQuestions"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn primary" id="pgSend">发送 ▶</button>
+        <button class="btn" id="pgToggleJson">查看 / 编辑请求 JSON</button>
+        <button class="btn" id="pgCopyCurl">复制 curl</button>
+        <button class="btn" id="pgCopyPy">复制 Python</button>
+      </div>
+      <div id="pgJsonWrap" hidden style="margin-top:8px">
+        <textarea id="pgJson" rows="14"></textarea>
+        <div class="row" style="margin-top:6px"><button class="btn small" id="pgApplyJson">应用 JSON 到表单</button><span class="small muted" id="pgJsonMsg"></span></div>
+      </div>
+      <h3>历史记录 <span class="small muted">（本机 localStorage，点击回填）</span></h3>
+      <ul class="hist" id="pgHist"></ul>
+    </div>
+    <div>
+      <div class="summary" id="pgSummary"><span class="muted">尚未发送</span></div>
+      <div id="pgResults"></div>
+      <details><summary class="small muted" style="cursor:pointer">原始响应 JSON</summary><pre id="pgRaw"></pre></details>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 新闻情绪 ===================== -->
+<section class="tab" id="tab-news">
+  <h2>场景 · 新闻情绪打分</h2>
+  <p class="lead">对一条个股新闻同时问四个问题：情绪等级（score）、影响时长（choice）、是否含新增实质信息（noul）、新闻类别（choice）。然后用<b>你自己的代码</b>把这些原子答案合成一个信号——这就是官方 "Composite Scoring" 模式：模型只做原子判断，权重和公式由代码控制。</p>
+  <div class="card" style="margin-bottom:14px">
+    <div class="row"><button class="btn primary" id="newsRunAll">评估全部示例（并行 6 次请求）</button><span class="small muted" id="newsMsg"></span></div>
+    <table style="margin-top:10px"><thead><tr><th>股票</th><th>新闻（示例文本）</th><th>情绪 0–4</th><th>置信</th><th>新信息</th><th>时长</th><th>类别</th><th>合成信号</th><th>延迟</th></tr></thead>
+    <tbody id="newsRows"></tbody></table>
+    <div class="small muted" style="margin-top:8px">合成信号（示例公式，仅演示） = (sentiment − 2) / 2 × confidence × P(新信息) × 100 → 范围 −100 … +100。</div>
+  </div>
+  <div class="grid g2">
+    <div class="card">
+      <h4>自定义新闻</h4>
+      <input type="text" id="newsTicker" placeholder="Ticker，例如 NVDA" style="width:160px;margin-bottom:6px">
+      <textarea id="newsText" rows="6" placeholder="粘贴一段英文新闻（中文也可以试，但官方说明英文最可靠）"></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn primary" id="newsRunOne">评估</button></div>
+    </div>
+    <div class="card"><h4>详情</h4><div id="newsDetail" class="small muted">点击表格中的一行查看四个问题的完整概率分布。</div></div>
+  </div>
+</section>
+
+<!-- ===================== 实时控制 ===================== -->
+<section class="tab" id="tab-control">
+  <h2>场景 · 实时控制（智能家居）</h2>
+  <p class="lead">模拟一个每隔几秒收到一条自然语言指令的家居控制器。每个 tick 把<b>当前设备状态 + 传感器 + 指令</b>作为 state 发给 Jev，问：目标设备、动作、是否涉及安全、紧急程度。代码按<b>置信度阈值</b>决定直接执行还是要求确认——这就是官方 "Confidence-Gated Routing" 模式。看右下角的延迟：这是 Jev 能放进实时回路的原因。</p>
+  <div class="row" style="margin-bottom:12px">
+    <button class="btn primary" id="ctlStart">▶ 开始循环</button><button class="btn" id="ctlStep">单步</button>
+    <label>间隔 <select id="ctlInterval"><option value="1500">1.5s</option><option value="3000" selected>3s</option><option value="5000">5s</option></select></label>
+    <label>普通阈值 <input type="number" id="ctlThr" value="0.6" step="0.05" min="0" max="1" style="width:70px"></label>
+    <label>安全敏感阈值 <input type="number" id="ctlThrSec" value="0.9" step="0.05" min="0" max="1" style="width:70px"></label>
+    <label title="即使置信度超过阈值，涉及门锁等安全动作也要求人工确认"><input type="checkbox" id="ctlAlwaysConfirm" checked> 安全敏感总是确认</label>
+    <label><input type="checkbox" id="ctlCustomOn"> 用我的指令：</label><input type="text" id="ctlCustom" placeholder="e.g. it's too dark in here" style="width:240px">
+  </div>
+  <div class="grid g2">
+    <div>
+      <h4 style="margin:0 0 8px">设备状态</h4>
+      <div class="devices" id="devices"></div>
+      <div class="small muted" style="margin-top:8px" id="sensors"></div>
+      <h4 style="margin:14px 0 6px">延迟（最近 30 次，ms）</h4>
+      <svg class="spark" id="spark" viewBox="0 0 300 46" preserveAspectRatio="none"></svg>
+      <div class="small muted" id="sparkStat"></div>
+    </div>
+    <div>
+      <h4 style="margin:0 0 8px">决策日志</h4>
+      <div class="log" id="ctlLog"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 五子棋 ===================== -->
+<section class="tab" id="tab-gomoku">
+  <h2>场景 · 五子棋自动判断</h2>
+  <p class="lead">每落一子，把棋盘文本发给 Jev 问四件事：<b>是否已分胜负</b>（choice）、<b>谁有一步制胜的威胁</b>（choice）、<b>局面优劣</b>（score）、<b>下一步最佳落点</b>（choice，候选点就是空位，最多 255 个）。页面用代码算出真实答案，和 Jev 的判断逐条比对并累计准确率——直观看到"校准概率"到底靠不靠谱。</p>
+  <div class="row" style="margin-bottom:12px">
+    <label>模式 <select id="gmMode"><option value="pvp">人人对弈（自动判断）</option><option value="pve">人机：我执黑，Jev 执白</option></select></label>
+    <button class="btn" id="gmReset">重开</button>
+    <button class="btn" id="gmRandom">随机走 6 手</button>
+    <label><input type="checkbox" id="gmAsk" checked> 每步询问 Jev</label>
+    <span class="small muted" id="gmMsg"></span>
+  </div>
+  <div class="gm">
+    <div><div class="board" id="board"></div><div class="small muted" style="margin-top:6px">● 黑 X 先行 · 红点 = 最后一手 · 虚线圈 = Jev 建议落点</div></div>
+    <div>
+      <div class="card">
+        <h4>Jev 判断 vs 真实值 <span class="tally" id="gmTally"></span></h4>
+        <div class="gt" id="gmTable"><span class="k">项目</span><span class="k">Jev</span><span class="k">真实（代码计算）</span><span class="k">一致</span></div>
+      </div>
+      <div id="gmAnswers" style="margin-top:12px"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 优势 ===================== -->
+<section class="tab" id="tab-pros">
+  <h2>优势与局限</h2>
+  <table><thead><tr><th></th><th>Jev（System One）</th><th>通用 LLM</th></tr></thead><tbody>
+    <tr><td>输出</td><td>类型化值 + 每个选项的校准概率 + 置信度</td><td>自由文本，需要解析、校验</td></tr>
+    <tr><td>幻觉 / 类型错误</td><td>结构上不可能——输出空间在请求里定义好</td><td>需要重试、guardrail、schema 校验</td></tr>
+    <tr><td>延迟</td><td>70–500 ms（本页每次请求都显示实测值）</td><td>秒级到分钟级</td></tr>
+    <tr><td>价格</td><td>$0.042 / M 输入 token，输出免费</td><td>高 1–2 个数量级；输出 token 另计</td></tr>
+    <tr><td>不确定性</td><td>原生 <code>confidence</code>，可直接做阈值路由</td><td>需要额外提示、多次采样或 logprobs</td></tr>
+    <tr><td>批量</td><td>一次请求多个问题，state 只计一次</td><td>每个问题通常要一次生成</td></tr>
+    <tr><td>速率</td><td>250k tokens/s · 1200 请求/分（动态调整）</td><td>视供应商</td></tr>
+  </tbody></table>
+  <h3>什么时候不该用它</h3>
+  <ul class="small">
+    <li>需要生成文字、代码、解释的任务——Jev 不写任何东西。</li>
+    <li>答案集合无法事先枚举（开放式抽取）。变通：先用规则/正则产出候选，再让 Jev 选（官方 "Pre-parsed Value Extraction" cookbook）。</li>
+    <li>非英文输入、图片 / 音频输入——目前纯文本，英文最可靠。</li>
+    <li>需要多步推理的复杂判断——官方建议拆成多个原子问题（Composite Scoring），由代码组合。</li>
+  </ul>
+  <h3>本页用到的三个官方模式</h3>
+  <div class="grid g3">
+    <div class="card"><h4>Composite Scoring</h4><div class="small">新闻场景：4 个原子答案 → 代码里的公式 → 一个信号。权重可审计、可调。</div></div>
+    <div class="card"><h4>Confidence-Gated Routing</h4><div class="small">控制场景：置信度 ≥ 阈值直接执行，否则要求确认；安全敏感动作阈值更高。</div></div>
+    <div class="card"><h4>Fan-out + 高基数 Choice</h4><div class="small">五子棋场景：一次请求 4 个问题；"最佳落点"的候选集合就是所有空位。</div></div>
+  </div>
+  <p class="small muted">参考：docs.typesafe.ai（Models / API Reference / Confidence / Patterns）。</p>
+</section>
+</main>
+
+<script>
+/* ======================= 通用 ======================= */
+const $ = (s, el=document) => el.querySelector(s);
+const $$ = (s, el=document) => [...el.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtP = p => (p ?? 0).toFixed(2);
+const PRICE = 0.042 / 1e6;
+const cost = t => '$' + (t * PRICE).toFixed(7) + '（1 万次 ≈ $' + (t * PRICE * 1e4).toFixed(3) + '）';
+const modelSel = $('#model');
+
+$$('#nav button').forEach(b => b.onclick = () => {
+  $$('#nav button').forEach(x => x.classList.toggle('active', x === b));
+  $$('section.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + b.dataset.tab));
+  location.hash = b.dataset.tab;
+});
+if (location.hash) { const b = $(`#nav button[data-tab="${location.hash.slice(1)}"]`); b && b.click(); }
+
+async function callJev(state, questions, model) {
+  const body = { model: model || modelSel.value, state, questions };
+  const t0 = performance.now();
+  const r = await fetch('/api/systemone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const clientMs = performance.now() - t0;
+  const proxyMs = Number(r.headers.get('X-Proxy-Elapsed-Ms') || 0);
+  let json; try { json = await r.json(); } catch { json = { error: 'non-JSON response' }; }
+  if (!r.ok) { const e = new Error(`HTTP ${r.status}: ${JSON.stringify(json)}`); e.status = r.status; e.body = json; throw e; }
+  return { json, clientMs, proxyMs, request: body };
+}
+
+async function health() {
+  try {
+    const h = await (await fetch('/api/health')).json();
+    if (!h.key_present) { $('#dot').className = 'dot bad'; $('#statusText').textContent = '代理在线，但 .env 里没有 key'; return; }
+    const m = await (await fetch('/api/models')).json();
+    if (m.models) {
+      modelSel.innerHTML = m.models.map(x => `<option value="${esc(x.name)}" title="${esc(x.description||'')}">${esc(x.name)}</option>`).join('');
+    }
+    $('#dot').className = 'dot ok'; $('#statusText').textContent = '代理在线 · ' + (m.models ? m.models.length + ' 个模型' : 'key 已加载');
+  } catch (e) { $('#dot').className = 'dot bad'; $('#statusText').textContent = '代理不可达（python server.py）'; }
+}
+health();
+
+// principle demo animation
+setTimeout(() => { const w = [94, 4, 2]; $$('#demoSlots .bar i').forEach((i, k) => i.style.width = w[k] + '%'); }, 300);
+
+/* ======================= 答案可视化 ======================= */
+function ringSvg(v) {
+  const r = 26, c = 2 * Math.PI * r, col = v >= .8 ? 'var(--ok)' : v >= .5 ? 'var(--warn)' : 'var(--bad)';
+  return `<svg class="ring" viewBox="0 0 64 64"><circle cx="32" cy="32" r="${r}" fill="none" stroke="var(--line)" stroke-width="7"/>
+  <circle cx="32" cy="32" r="${r}" fill="none" stroke="${col}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${c*v} ${c}" transform="rotate(-90 32 32)"/>
+  <text x="32" y="37" text-anchor="middle">${fmtP(v)}</text></svg>`;
+}
+function gaugeSvg(v) {
+  const a = Math.PI * (1 - v), cx = 85, cy = 85, R = 70;
+  const px = cx + R * Math.cos(a), py = cy - R * Math.sin(a);
+  const col = v >= .5 ? 'var(--ok)' : 'var(--bad)';
+  return `<svg class="gauge" viewBox="0 0 170 100">
+   <path d="M15 85 A70 70 0 0 1 155 85" fill="none" stroke="var(--line)" stroke-width="12"/>
+   <path d="M15 85 A70 70 0 0 1 155 85" fill="none" stroke="${col}" stroke-width="12" stroke-dasharray="${Math.PI*R*v} ${Math.PI*R}" stroke-linecap="round"/>
+   <line x1="85" y1="85" x2="85" y2="12" stroke="var(--muted)" stroke-dasharray="3 3"/>
+   <line x1="${cx}" y1="${cy}" x2="${px}" y2="${py}" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"/>
+   <circle cx="${cx}" cy="${cy}" r="5" fill="var(--ink)"/>
+   <text x="12" y="98" font-size="10" fill="var(--muted)">否 0</text><text x="140" y="98" font-size="10" fill="var(--muted)">1 是</text>
+   <text x="85" y="60" text-anchor="middle" font-size="18" font-weight="700" fill="var(--ink)" font-family="monospace">${fmtP(v)}</text></svg>`;
+}
+function routeHtml(conf, id) {
+  return `<div class="route" data-route="${id}">置信度路由：<input type="range" min="0" max="1" step="0.05" value="0.5" data-lo> <span data-lo-v>0.50</span>
+   <input type="range" min="0" max="1" step="0.05" value="0.85" data-hi> <span data-hi-v>0.85</span> → <span data-out></span></div>`;
+}
+function wireRoutes(root) {
+  $$('.route', root).forEach(r => {
+    const conf = Number(r.dataset.conf), lo = $('[data-lo]', r), hi = $('[data-hi]', r), out = $('[data-out]', r);
+    const upd = () => {
+      $('[data-lo-v]', r).textContent = Number(lo.value).toFixed(2); $('[data-hi-v]', r).textContent = Number(hi.value).toFixed(2);
+      const c = conf >= Number(hi.value) ? ['auto', '自动执行'] : conf >= Number(lo.value) ? ['confirm', '请用户确认'] : ['human', '转人工 / 回退'];
+      out.innerHTML = `<span class="pill ${c[0]}">${c[1]}</span>`;
+    };
+    lo.oninput = hi.oninput = upd; upd();
+  });
+}
+function answerHtml(key, a, q) {
+  const inst = q?.instructions ? `<div class="small muted" style="margin-bottom:8px">${esc(typeof q.instructions === 'string' ? q.instructions : JSON.stringify(q.instructions))}</div>` : '';
+  if (a.type === 'noul') {
+    const v = a.noul;
+    return `<div class="ans"><div class="hd"><b>${esc(key)}</b><span class="tag">noul</span></div>${inst}
+      <div class="row">${gaugeSvg(v)}<div><div>P(是) = <b style="font-family:var(--mono)">${fmtP(v)}</b></div><div class="small muted">${v >= .5 ? '判断：是' : '判断：否'}（0.5 为分界；可按业务改阈值）</div></div></div>
+      <div class="route" data-conf="${Math.abs(v - .5) * 2}">置信度路由（|P−0.5|×2 = ${fmtP(Math.abs(v-.5)*2)}）：<input type="range" min="0" max="1" step="0.05" value="0.5" data-lo> <span data-lo-v></span> <input type="range" min="0" max="1" step="0.05" value="0.85" data-hi> <span data-hi-v></span> → <span data-out></span></div></div>`;
+  }
+  if (a.type === 'choice') {
+    const ps = Object.entries(a.probabilities || {}).sort((x, y) => y[1] - x[1]);
+    const descs = q?.criteria || {};
+    return `<div class="ans"><div class="hd"><b>${esc(key)}</b><span class="tag">choice</span></div>${inst}
+      <div class="row" style="align-items:flex-start"><div style="flex:1" class="pbars">${ps.map(([k, p]) => `<div class="pbar ${k === a.choice ? 'win' : ''}" title="${esc(descs[k] || '')}"><span class="k">${esc(k)}</span><div class="bar"><i style="width:${p*100}%"></i></div><span>${fmtP(p)}</span></div>`).join('')}</div>
+      <div style="text-align:center"><div class="small muted">confidence</div>${ringSvg(a.confidence)}</div></div>
+      <div style="margin-top:6px">→ <code>choice: "${esc(a.choice)}"</code> <span class="small muted">${esc(descs[a.choice] || '')}</span></div>
+      <div class="route" data-conf="${a.confidence}">置信度路由：<input type="range" min="0" max="1" step="0.05" value="0.5" data-lo> <span data-lo-v></span> <input type="range" min="0" max="1" step="0.05" value="0.85" data-hi> <span data-hi-v></span> → <span data-out></span></div></div>`;
+  }
+  if (a.type === 'score') {
+    const lv = Object.entries(a.legend || {}).map(([i, d]) => [Number(i), d]).sort((x, y) => x[0] - y[0]);
+    const n = lv.length, max = n - 1;
+    const rows = [...lv].reverse().map(([i, d]) => { const p = a.probabilities?.[i] ?? 0, win = Math.round(a.score) === i;
+      return `<div class="pbar ${win ? 'win' : ''}"><span class="k" title="${esc(d)}">${i} · ${esc(d)}</span><div class="bar"><i style="width:${p*100}%"></i></div><span>${fmtP(p)}</span></div>`; }).join('');
+    const pct = max > 0 ? (a.score / max * 100) : 0;
+    return `<div class="ans"><div class="hd"><b>${esc(key)}</b><span class="tag">score</span></div>${inst}
+      <div class="row" style="align-items:flex-start"><div style="flex:1"><div class="pbars">${rows}</div>
+      <div class="axis"><div class="line"></div>${lv.map(([i]) => `<div class="tick" style="left:${i/max*100}%"></div><div class="tl" style="left:${i/max*100}%">${i}</div>`).join('')}<div class="mv" style="left:${pct}%">${a.score}</div><div class="mk" style="left:${pct}%"></div></div></div>
+      <div style="text-align:center"><div class="small muted">confidence</div>${ringSvg(a.confidence)}</div></div>
+      <div style="margin-top:14px">→ <code>score: ${a.score}</code> <span class="small muted">（期望值；小数表示介于两级之间）</span></div>
+      <div class="route" data-conf="${a.confidence}">置信度路由：<input type="range" min="0" max="1" step="0.05" value="0.5" data-lo> <span data-lo-v></span> <input type="range" min="0" max="1" step="0.05" value="0.85" data-hi> <span data-hi-v></span> → <span data-out></span></div></div>`;
+  }
+  return `<pre>${esc(JSON.stringify(a, null, 2))}</pre>`;
+}
+function renderAnswers(root, res, questions) {
+  root.innerHTML = Object.entries(res.answers || {}).map(([k, a]) => answerHtml(k, a, questions[k])).join('');
+  wireRoutes(root);
+}
+function summaryHtml(r) {
+  const u = r.json.usage || {};
+  return `<span>模型 <b>${esc(r.json.model)}</b></span><span>端到端 <b>${r.clientMs.toFixed(0)} ms</b></span><span>代理→API <b>${r.proxyMs} ms</b></span>
+    <span>输入 <b>${u.input_tokens}</b> tok</span><span>输出 <b>${u.output_tokens}</b> tok（免费）</span><span>费用 <b>${cost(u.input_tokens || 0)}</b></span>`;
+}
+
+/* ======================= 三种类型卡片 ======================= */
+const TYPE_EXAMPLES = {
+  noul: { title: 'Noul — 这个陈述是否为真？', desc: '返回"是"的概率（0–1）。没有 confidence 字段——概率离 0.5 越远越确定。criteria 可选，用来说明"是/否"分别指什么。',
+    state: 'Hi, I was charged twice for order A-104 and I want my money back.',
+    q: { key: 'wants_refund', type: 'noul', instructions: 'Is the customer asking for a refund?', criteria: { true: 'Explicitly or implicitly wants money returned', false: 'Anything else' } },
+    resp: `{ "type": "noul", "noul": 0.97 }` },
+  choice: { title: 'Choice — 从集合里选一个', desc: '返回选中的 key、每个选项的概率、以及置信度。最多 255 个选项；描述可以为 null。',
+    state: 'Hi, I was charged twice for order A-104 and I want my money back.',
+    q: { key: 'department', type: 'choice', instructions: 'Which team should handle this message?', criteria: { billing: 'Charges, invoices, refunds', technical: 'Bugs and integration problems', sales: 'Pricing, plans, upgrades' } },
+    resp: `{ "type": "choice", "choice": "billing",
+  "probabilities": { "billing": 0.96, "technical": 0.02, "sales": 0.02 },
+  "confidence": 0.94 }` },
+  score: { title: 'Score — 在有序量表上定位', desc: 'criteria 是等级描述数组（索引即分数，≥2 项）。返回期望值 score（可为小数）、legend、每级概率和置信度。',
+    state: 'Hi, I was charged twice for order A-104 and I want my money back.',
+    q: { key: 'frustration', type: 'score', instructions: 'How frustrated is the customer?', criteria: ['Calm, neutral tone', 'Mildly annoyed', 'Clearly frustrated', 'Angry, threatening to leave'] },
+    resp: `{ "type": "score", "score": 1.8,
+  "legend": { "0": "Calm…", "1": "Mildly annoyed", "2": "Clearly frustrated", "3": "Angry…" },
+  "probabilities": { "0": 0.02, "1": 0.25, "2": 0.64, "3": 0.09 },
+  "confidence": 0.62 }` },
+};
+$('#typeCards').innerHTML = Object.entries(TYPE_EXAMPLES).map(([t, e]) => {
+  const { key, ...q } = e.q;
+  return `<div class="card"><h4>${esc(e.title)} <span class="tag">${t}</span></h4><div class="small muted">${esc(e.desc)}</div>
+    <div class="small" style="margin-top:8px"><b>请求（questions 里的一项）</b></div><pre>"${key}": ${esc(JSON.stringify(q, null, 2))}</pre>
+    <div class="small"><b>响应（answers 里的一项）</b></div><pre>"${key}": ${esc(e.resp)}</pre>
+    <button class="btn small primary" data-try="${t}">试一下 ▶</button></div>`;
+}).join('');
+$$('[data-try]').forEach(b => b.onclick = () => { loadPreset(b.dataset.try); $('#nav button[data-tab=playground]').click(); pgSend(); });
+
+/* ======================= Playground ======================= */
+const PRESETS = {
+  noul: () => ({ state: TYPE_EXAMPLES.noul.state, questions: [TYPE_EXAMPLES.noul.q] }),
+  choice: () => ({ state: TYPE_EXAMPLES.choice.state, questions: [TYPE_EXAMPLES.choice.q] }),
+  score: () => ({ state: TYPE_EXAMPLES.score.state, questions: [TYPE_EXAMPLES.score.q] }),
+  mixed: () => ({ state: TYPE_EXAMPLES.noul.state, questions: [TYPE_EXAMPLES.noul.q, TYPE_EXAMPLES.choice.q, TYPE_EXAMPLES.score.q] }),
+  sponsor: () => ({ state: JSON.stringify({ opportunity: 'link', name: 'Managed Postgres', description: 'We make a managed PostgreSQL hosting product and would like to sponsor the newsletter in October.' }, null, 2),
+    questions: [
+      { key: 'is_sponsor_inquiry', type: 'noul', instructions: 'Does `description` ask to sponsor the site or newsletter?' },
+      { key: 'product_category', type: 'choice', instructions: 'What kind of product is described by `name` and `description`?', criteria: { dev_tool: 'Developer tools, hosting, APIs, SaaS for developers', course: 'Courses, books, or training', unrelated: 'Anything not aimed at developers' } },
+      { key: 'message_quality', type: 'score', instructions: 'How specific is the request?', criteria: ['Generic template, no reference to this site', 'Mentions the site but no concrete ask', 'Concrete ask with a timeframe or product named'] },
+    ] }),
+};
+const PRESET_NAMES = { noul: 'Noul 示例', choice: 'Choice 示例', score: 'Score 示例', mixed: '三类混合（同一 state）', sponsor: '官方示例：赞助邮件分拣（JSON state）' };
+$('#pgPreset').innerHTML += Object.entries(PRESET_NAMES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+$('#pgPreset').onchange = e => { if (e.target.value) loadPreset(e.target.value); };
+function loadPreset(name) { const p = PRESETS[name](); $('#pgState').value = p.state; setQuestions(p.questions); }
+
+let qSeq = 0;
+function qCardHtml(q) {
+  const id = 'q' + (++qSeq);
+  let crit = '';
+  if (q.type === 'noul') {
+    crit = `<label>criteria（可选）</label><div class="crit"><span class="small muted" style="padding-top:6px">true</span><input type="text" data-ctrue value="${esc(q.criteria?.true || '')}" placeholder="“是”的含义"><span></span>
+      <span class="small muted" style="padding-top:6px">false</span><input type="text" data-cfalse value="${esc(q.criteria?.false || '')}" placeholder="“否”的含义"><span></span></div>`;
+  } else if (q.type === 'choice') {
+    const rows = Object.entries(q.criteria || { option_a: '', option_b: '' }).map(([k, d]) => critRow(k, d)).join('');
+    crit = `<label>criteria：选项 key → 描述</label><div data-crit>${rows}</div><button class="btn small" data-addopt style="margin-top:4px">+ 选项</button>`;
+  } else {
+    const rows = (q.criteria || ['', '']).map((d, i) => levelRow(i, d)).join('');
+    crit = `<label>criteria：等级描述（索引 = 分数）</label><div data-crit>${rows}</div><button class="btn small" data-addlvl style="margin-top:4px">+ 等级</button>`;
+  }
+  return `<div class="qcard" data-type="${q.type}" id="${id}"><div class="hd"><span class="tag">${q.type}</span><input type="text" data-key value="${esc(q.key)}" placeholder="key" style="width:180px"><div class="spacer"></div><button class="btn small" data-del>删除</button></div>
+    <label>instructions</label><input type="text" data-inst value="${esc(q.instructions || '')}">${crit}</div>`;
+}
+const critRow = (k, d) => `<div class="crit"><input type="text" data-ck value="${esc(k)}" placeholder="key"><input type="text" data-cd value="${esc(d ?? '')}" placeholder="描述"><button class="btn small" data-delrow>×</button></div>`;
+const levelRow = (i, d) => `<div class="crit score"><span class="small muted" style="padding-top:6px;text-align:right">${i}</span><input type="text" data-ld value="${esc(d)}" placeholder="等级描述"><button class="btn small" data-delrow>×</button></div>`;
+function setQuestions(list) { $('#pgQuestions').innerHTML = list.map(qCardHtml).join(''); syncJson(); }
+function addQuestion(type) {
+  const base = { noul: { key: 'is_true', type, instructions: '' }, choice: { key: 'category', type, instructions: '' }, score: { key: 'level', type, instructions: '' } }[type];
+  $('#pgQuestions').insertAdjacentHTML('beforeend', qCardHtml(base)); syncJson();
+}
+$$('[data-add]').forEach(b => b.onclick = () => addQuestion(b.dataset.add));
+$('#pgQuestions').addEventListener('click', e => {
+  const t = e.target;
+  if (t.matches('[data-del]')) t.closest('.qcard').remove();
+  else if (t.matches('[data-delrow]')) t.closest('.crit').remove();
+  else if (t.matches('[data-addopt]')) t.previousElementSibling.insertAdjacentHTML('beforeend', critRow('', ''));
+  else if (t.matches('[data-addlvl]')) { const c = t.previousElementSibling; c.insertAdjacentHTML('beforeend', levelRow(c.children.length, '')); }
+  else return;
+  syncJson();
+});
+$('#pgQuestions').addEventListener('input', syncJson); $('#pgState').addEventListener('input', syncJson);
+$('#pgClear').onclick = () => { $('#pgState').value = ''; setQuestions([]); };
+
+function readQuestions() {
+  const out = {};
+  $$('.qcard').forEach(c => {
+    const type = c.dataset.type, key = $('[data-key]', c).value.trim() || 'q'; const q = { type, instructions: $('[data-inst]', c).value };
+    if (type === 'noul') { const t = $('[data-ctrue]', c).value.trim(), f = $('[data-cfalse]', c).value.trim(); if (t || f) q.criteria = { ...(t && { true: t }), ...(f && { false: f }) }; }
+    else if (type === 'choice') { q.criteria = {}; $$('[data-crit] .crit', c).forEach(r => { const k = $('[data-ck]', r).value.trim(); if (k) q.criteria[k] = $('[data-cd]', r).value || null; }); }
+    else q.criteria = $$('[data-ld]', c).map(i => i.value);
+    out[key] = q;
+  });
+  return out;
+}
+function readState() { const s = $('#pgState').value; if (/^\s*[\[{]/.test(s)) { try { return JSON.parse(s); } catch {} } return s; }
+function buildRequest() { return { model: modelSel.value, state: readState(), questions: readQuestions() }; }
+function syncJson() { if (!$('#pgJsonWrap').hidden) $('#pgJson').value = JSON.stringify(buildRequest(), null, 2); }
+$('#pgToggleJson').onclick = () => { $('#pgJsonWrap').hidden = !$('#pgJsonWrap').hidden; syncJson(); };
+$('#pgApplyJson').onclick = () => {
+  try {
+    const j = JSON.parse($('#pgJson').value);
+    $('#pgState').value = typeof j.state === 'string' ? j.state : JSON.stringify(j.state, null, 2);
+    setQuestions(Object.entries(j.questions || {}).map(([key, q]) => ({ key, ...q })));
+    if (j.model) modelSel.value = j.model;
+    $('#pgJsonMsg').textContent = '已应用';
+  } catch (e) { $('#pgJsonMsg').textContent = 'JSON 无效：' + e.message; }
+};
+$('#pgCopyCurl').onclick = () => copy(`curl https://api.typesafe.ai/v1/systemone \\\n  -H "Authorization: Bearer $TYPESAFE_API_KEY" -H "Content-Type: application/json" \\\n  -d '${JSON.stringify(buildRequest())}'`);
+$('#pgCopyPy').onclick = () => copy(`import os, requests\nr = requests.post("https://api.typesafe.ai/v1/systemone",\n    headers={"Authorization": f"Bearer {os.environ['TYPESAFE_API_KEY']}"},\n    json=${JSON.stringify(buildRequest(), null, 4)})\nprint(r.json())`);
+function copy(t) { navigator.clipboard.writeText(t).then(() => { $('#statusText').textContent = '已复制到剪贴板'; setTimeout(health, 1500); }); }
+
+async function pgSend() {
+  const req = buildRequest(); const btn = $('#pgSend'); btn.disabled = true;
+  $('#pgSummary').innerHTML = '<span class="muted">请求中…</span>'; $('#pgResults').innerHTML = '';
+  try {
+    const r = await callJev(req.state, req.questions, req.model);
+    $('#pgSummary').innerHTML = summaryHtml(r); renderAnswers($('#pgResults'), r.json, req.questions); $('#pgRaw').textContent = JSON.stringify(r.json, null, 2);
+    pushHist({ ts: Date.now(), req, res: r.json, ms: r.clientMs });
+  } catch (e) { $('#pgSummary').innerHTML = '<span class="muted">失败</span>'; $('#pgResults').innerHTML = `<div class="err">${esc(e.message)}</div>`; $('#pgRaw').textContent = ''; }
+  btn.disabled = false;
+}
+$('#pgSend').onclick = pgSend;
+function getHist() { try { return JSON.parse(localStorage.getItem('jev_hist') || '[]'); } catch { return []; } }
+function pushHist(h) { const l = [h, ...getHist()].slice(0, 30); try { localStorage.setItem('jev_hist', JSON.stringify(l)); } catch {} renderHist(); }
+function renderHist() {
+  const l = getHist();
+  $('#pgHist').innerHTML = l.map((h, i) => `<li data-i="${i}"><span class="muted">${new Date(h.ts).toLocaleTimeString()}</span><span>${Object.keys(h.req.questions).map(k => esc(k)).join(', ')}</span><span class="spacer"></span><span class="muted">${h.ms.toFixed(0)} ms</span></li>`).join('') || '<li class="muted">暂无</li>';
+  $$('#pgHist li[data-i]').forEach(li => li.onclick = () => { const h = l[li.dataset.i]; $('#pgJson').value = JSON.stringify(h.req, null, 2); $('#pgApplyJson').click();
+    $('#pgSummary').innerHTML = `<span>历史记录 · ${new Date(h.ts).toLocaleString()}</span>`; renderAnswers($('#pgResults'), h.res, h.req.questions); $('#pgRaw').textContent = JSON.stringify(h.res, null, 2); });
+}
+renderHist(); loadPreset('mixed');
+
+/* ======================= 新闻情绪 ======================= */
+const NEWS = [
+  { t: 'NVDA', s: 'Nvidia reported quarterly revenue above analyst estimates, driven by data center demand, and raised full-year guidance. Shares rose in after-hours trading.' },
+  { t: 'TSLA', s: 'Tesla said it would recall about 120,000 vehicles over a software issue affecting the rear camera display; a fix will be delivered over the air at no cost.' },
+  { t: 'AAPL', s: 'Apple announced a new iPhone lineup at its fall event, with pricing unchanged from last year. Analysts described the update as incremental.' },
+  { t: 'AMD', s: 'Regulators opened an antitrust inquiry into AMD\'s proposed acquisition of a networking startup, potentially delaying the deal by several quarters.' },
+  { t: 'MSFT', s: 'Reports citing unnamed sources say Microsoft is considering layoffs in its gaming division; the company declined to comment.' },
+  { t: 'AMZN', s: 'Amazon\'s CFO said at an investor conference that the company expects continued margin pressure from logistics investments through next year, but sees long-term returns.' },
+];
+const NEWS_Q = {
+  sentiment: { type: 'score', instructions: 'What is the likely market sentiment of `news` for the stock `ticker`?', criteria: ['Very bearish: clearly negative for the stock price', 'Bearish: somewhat negative', 'Neutral or mixed, no clear direction', 'Bullish: somewhat positive', 'Very bullish: clearly positive for the stock price'] },
+  horizon: { type: 'choice', instructions: 'Over what time horizon would `news` mainly affect the stock price?', criteria: { intraday: 'Hours; a headline reaction that fades', weeks: 'Days to weeks; changes near-term expectations', structural: 'Quarters or longer; changes the business fundamentals' } },
+  is_material: { type: 'noul', instructions: 'Does `news` contain new, material information about the company (as opposed to a rehash of known facts, a rumor, or a minor update)?' },
+  category: { type: 'choice', instructions: 'What category best describes `news`?', criteria: { earnings: 'Reported results or guidance', product: 'Product launches or updates', regulatory: 'Regulators, legal, antitrust, recalls', management: 'Executive comments, strategy, workforce', rumor: 'Unconfirmed reports or speculation', macro: 'Economy, rates, sector-wide factors', other: null } },
+};
+const newsResults = {};
+function newsSignal(a) { return ((a.sentiment.score - 2) / 2) * a.sentiment.confidence * a.is_material.noul * 100; }
+function newsRowHtml(i, n, r) {
+  const cell = r ? (r.error ? `<td colspan="7" class="err">${esc(r.error)}</td>` : (() => { const a = r.json.answers, sig = newsSignal(a);
+    return `<td><span class="sent"><i style="left:${a.sentiment.score/4*100}%"></i></span> <b style="font-family:var(--mono)">${a.sentiment.score}</b></td><td>${fmtP(a.sentiment.confidence)}</td><td>${fmtP(a.is_material.noul)}</td><td>${esc(a.horizon.choice)} <span class="muted small">${fmtP(a.horizon.confidence)}</span></td><td>${esc(a.category.choice)}</td><td class="sig ${sig > 10 ? 'pos' : sig < -10 ? 'neg' : ''}">${sig > 0 ? '+' : ''}${sig.toFixed(0)}</td><td class="muted">${r.clientMs.toFixed(0)} ms</td>`; })()) : '<td colspan="7" class="muted">—</td>';
+  return `<tr class="newsrow" data-i="${i}" style="cursor:pointer"><td><b>${esc(n.t)}</b></td><td class="small">${esc(n.s)}</td>${cell}</tr>`;
+}
+function renderNews() {
+  $('#newsRows').innerHTML = NEWS.map((n, i) => newsRowHtml(i, n, newsResults[i])).join('');
+  $$('.newsrow').forEach(tr => tr.onclick = () => { const r = newsResults[tr.dataset.i]; if (!r || r.error) return;
+    $('#newsDetail').innerHTML = `<div class="summary">${summaryHtml(r)}</div>`; const d = document.createElement('div'); $('#newsDetail').appendChild(d); renderAnswers(d, r.json, NEWS_Q); });
+}
+async function newsEval(i) {
+  const n = NEWS[i];
+  try { newsResults[i] = await callJev({ ticker: n.t, news: n.s }, NEWS_Q); } catch (e) { newsResults[i] = { error: e.message }; }
+  renderNews();
+}
+$('#newsRunAll').onclick = async () => { $('#newsMsg').textContent = '请求中…'; const t0 = performance.now(); await Promise.all(NEWS.map((_, i) => newsEval(i))); $('#newsMsg').textContent = `6 条并行完成，总耗时 ${(performance.now() - t0).toFixed(0)} ms`; };
+$('#newsRunOne').onclick = async () => { const s = $('#newsText').value.trim(); if (!s) return; NEWS.push({ t: $('#newsTicker').value.trim() || '?', s }); renderNews(); await newsEval(NEWS.length - 1); $$('.newsrow').at(-1).click(); };
+renderNews();
+
+/* ======================= 实时控制 ======================= */
+const DEV = {
+  living_room_light: { name: '客厅灯', ic: '💡', state: 'off' },
+  bedroom_light: { name: '卧室灯', ic: '🛏️', state: 'off' },
+  thermostat: { name: '恒温器', ic: '🌡️', state: '21°C', target: 21 },
+  front_door: { name: '前门锁', ic: '🚪', state: 'locked' },
+};
+const SENS = { living_room_temp: 21.0, outdoor_temp: 12.0, living_room_lux: 180, occupancy: 'home' };
+const CMDS = ['it\'s getting dark in the living room', 'I\'m going to bed now', 'it\'s freezing in here', 'unlock the front door, my friend is outside', 'turn everything off, I\'m leaving for work', 'way too hot', 'lock up for the night', 'what\'s the weather like tomorrow?', 'can you make the bedroom cozy', 'someone I don\'t recognise is knocking, do not open', 'lights on please', 'set the temperature to 24'];
+const CTL_Q = {
+  device: { type: 'choice', instructions: 'Which device does `command` refer to? Consider `devices` and `sensors` for context.', criteria: { living_room_light: 'Living room light', bedroom_light: 'Bedroom light', thermostat: 'Thermostat / heating / cooling', front_door: 'Front door lock', none: 'No device; the command is not a control request' } },
+  action: { type: 'choice', instructions: 'What action should be performed on the device for `command`?', criteria: { turn_on: 'Switch a light on', turn_off: 'Switch a light off', raise_temp: 'Increase temperature', lower_temp: 'Decrease temperature', lock: 'Lock the door', unlock: 'Unlock the door', none: 'No action' } },
+  security_sensitive: { type: 'noul', instructions: 'Would executing `command` affect home security (e.g. unlocking or opening a door)?' },
+  urgency: { type: 'score', instructions: 'How urgent is `command`?', criteria: ['Routine, can wait', 'Should happen soon', 'Immediate, safety or comfort at stake'] },
+};
+let ctlTimer = null, cmdIdx = 0, ctlN = 0; const lat = [];
+function renderDevices(flash) {
+  $('#devices').innerHTML = Object.entries(DEV).map(([k, d]) => `<div class="dev ${d.state === 'on' ? 'on' : ''} ${d.state === 'locked' ? 'locked' : d.state === 'unlocked' ? 'unlocked' : ''} ${flash === k ? 'flash' : ''}"><div class="ic">${d.ic}</div><div>${d.name}</div><div class="st">${d.state}</div></div>`).join('');
+  $('#sensors').textContent = `传感器：室温 ${SENS.living_room_temp.toFixed(1)}°C · 室外 ${SENS.outdoor_temp.toFixed(1)}°C · 光照 ${SENS.living_room_lux} lux · ${SENS.occupancy}`;
+}
+function applyAction(dev, act) {
+  const d = DEV[dev]; if (!d) return false;
+  const ok = { turn_on: () => dev.endsWith('light') && (d.state = 'on'), turn_off: () => dev.endsWith('light') && (d.state = 'off'),
+    raise_temp: () => dev === 'thermostat' && (d.target += 2, d.state = d.target + '°C'), lower_temp: () => dev === 'thermostat' && (d.target -= 2, d.state = d.target + '°C'),
+    lock: () => dev === 'front_door' && (d.state = 'locked'), unlock: () => dev === 'front_door' && (d.state = 'unlocked') }[act];
+  const r = ok ? !!ok() : false; renderDevices(r ? dev : null); return r;
+}
+function drift() { SENS.living_room_temp += (DEV.thermostat.target - SENS.living_room_temp) * .3 + (Math.random() - .5); SENS.outdoor_temp += (Math.random() - .5); SENS.living_room_lux = Math.max(0, Math.round(SENS.living_room_lux + (Math.random() - .55) * 60)); }
+function spark() {
+  const l = lat.slice(-30), max = Math.max(200, ...l), w = 300 / 30;
+  $('#spark').innerHTML = l.map((v, i) => `<rect x="${i*w}" y="${46 - v/max*44}" width="${w-2}" height="${v/max*44}" fill="var(--accent)" opacity=".8"><title>${v.toFixed(0)} ms</title></rect>`).join('');
+  if (l.length) { const s = [...l].sort((a, b) => a - b); $('#sparkStat').textContent = `n=${lat.length} · 中位 ${s[Math.floor(s.length/2)].toFixed(0)} ms · 最小 ${s[0].toFixed(0)} · 最大 ${s.at(-1).toFixed(0)}`; }
+}
+function logItem(html) { const l = $('#ctlLog'); l.insertAdjacentHTML('afterbegin', html); while (l.children.length > 60) l.lastChild.remove(); }
+async function ctlTick() {
+  const cmd = $('#ctlCustomOn').checked && $('#ctlCustom').value.trim() ? $('#ctlCustom').value.trim() : CMDS[cmdIdx++ % CMDS.length];
+  drift(); renderDevices();
+  const state = { time: new Date().toTimeString().slice(0, 5), devices: Object.fromEntries(Object.entries(DEV).map(([k, d]) => [k, d.state])), sensors: SENS, command: cmd };
+  const n = ++ctlN, id = 'ctl' + n;
+  logItem(`<div class="it" id="${id}"><span class="muted">#${n}</span><div><div class="cmd">“${esc(cmd)}”</div><div class="dec">请求中…</div></div><span></span></div>`);
+  let r; try { r = await callJev(state, CTL_Q); } catch (e) { $(`#${id} .dec`).innerHTML = `<span class="err">${esc(e.message)}</span>`; return; }
+  lat.push(r.clientMs); spark();
+  const a = r.json.answers, dev = a.device.choice, act = a.action.choice, conf = Math.min(a.device.confidence, a.action.confidence), risky = a.security_sensitive.noul >= .5;
+  const thr = risky ? Number($('#ctlThrSec').value) : Number($('#ctlThr').value);
+  let pill, extra = '';
+  if (dev === 'none' || act === 'none') pill = '<span class="pill none">忽略（非控制指令）</span>';
+  else if (conf >= thr && !(risky && $('#ctlAlwaysConfirm').checked)) { const ok = applyAction(dev, act); pill = ok ? '<span class="pill auto">自动执行</span>' : '<span class="pill human">无效组合，未执行</span>'; }
+  else { pill = '<span class="pill confirm">需确认</span>'; extra = ` <button class="btn small" data-ok>执行</button><button class="btn small" data-no>拒绝</button>`; }
+  const el = $(`#${id}`);
+  $('.dec', el).innerHTML = `${esc(dev)} · ${esc(act)} · conf ${fmtP(conf)}${risky ? ' · <b style="color:var(--bad)">安全敏感</b> P=' + fmtP(a.security_sensitive.noul) : ''} · 紧急 ${a.urgency.score} · 阈值 ${thr}`;
+  el.lastElementChild.innerHTML = `${pill}${extra}<div class="small muted" style="text-align:right">${r.clientMs.toFixed(0)} ms</div>`;
+  const okb = $('[data-ok]', el), nob = $('[data-no]', el);
+  if (okb) { okb.onclick = () => { const ok = applyAction(dev, act); el.lastElementChild.firstElementChild.outerHTML = ok ? '<span class="pill auto">已确认执行</span>' : '<span class="pill human">无效组合</span>'; okb.remove(); nob.remove(); }; nob.onclick = () => { el.lastElementChild.firstElementChild.outerHTML = '<span class="pill human">已拒绝</span>'; okb.remove(); nob.remove(); }; }
+}
+$('#ctlStep').onclick = ctlTick;
+$('#ctlStart').onclick = () => {
+  if (ctlTimer) { clearInterval(ctlTimer); ctlTimer = null; $('#ctlStart').textContent = '▶ 开始循环'; return; }
+  ctlTick(); ctlTimer = setInterval(ctlTick, Number($('#ctlInterval').value)); $('#ctlStart').textContent = '⏸ 停止';
+};
+$('#ctlInterval').onchange = () => { if (ctlTimer) { clearInterval(ctlTimer); ctlTimer = setInterval(ctlTick, Number($('#ctlInterval').value)); } };
+renderDevices();
+
+/* ======================= 五子棋 ======================= */
+const N = 15, COLS = 'ABCDEFGHIJKLMNO';
+const GT_HEAD = '<span class="k">项目</span><span class="k">Jev</span><span class="k">真实（代码计算）</span><span class="k">一致</span>';
+let board, toMove, moves, gmBusy = false; const tally = { status: [0, 0], threat: [0, 0] };
+const cellName = (r, c) => COLS[c] + (r + 1);
+function gmReset() { board = Array.from({ length: N }, () => Array(N).fill(0)); toMove = 1; moves = []; renderBoard(); $('#gmAnswers').innerHTML = ''; $('#gmTable').innerHTML = GT_HEAD; $('#gmTally').textContent = ''; $('#gmMsg').textContent = ''; }
+function renderBoard(ghost) {
+  const b = $('#board'); b.innerHTML = '';
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const d = document.createElement('div'); d.className = 'cell' + (r === 0 ? ' t' : '') + (r === N - 1 ? ' b' : '') + (c === 0 ? ' l' : '') + (c === N - 1 ? ' r' : ''); d.dataset.r = r; d.dataset.c = c; d.title = cellName(r, c);
+    const v = board[r][c]; if (v) { const last = moves.at(-1); d.innerHTML = `<div class="stone ${v === 1 ? 'x' : 'o'} ${last && last[0] === r && last[1] === c ? 'last' : ''}"></div>`; }
+    else if (ghost && ghost[0] === r && ghost[1] === c) d.innerHTML = '<div class="ghost"></div>';
+    b.appendChild(d);
+  }
+}
+function winner(bd) {
+  const dirs = [[0, 1], [1, 0], [1, 1], [1, -1]];
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { const v = bd[r][c]; if (!v) continue;
+    for (const [dr, dc] of dirs) { let k = 1; while (k < 5 && bd[r + dr * k]?.[c + dc * k] === v) k++; if (k === 5) return v; } }
+  return 0;
+}
+function winningMoves(side) { const out = []; for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (!board[r][c]) { board[r][c] = side; if (winner(board) === side) out.push(cellName(r, c)); board[r][c] = 0; } return out; }
+function candidates() {
+  const s = new Set(); for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (board[r][c]) for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { const rr = r + dr, cc = c + dc; if (rr >= 0 && rr < N && cc >= 0 && cc < N && !board[rr][cc]) s.add(cellName(rr, cc)); }
+  if (!s.size) s.add('H8'); return [...s].sort();
+}
+function boardText() {
+  const rows = board.map((row, r) => String(r + 1).padStart(2) + ' ' + row.map(v => v === 1 ? 'X' : v === 2 ? 'O' : '.').join('')).join('\n');
+  const last = moves.at(-1);
+  return `Gomoku (five in a row wins) on a ${N}x${N} board. X = black, O = white, . = empty. Columns A-O left to right, rows 1-${N} top to bottom.\n   ${COLS}\n${rows}\nMove history: ${moves.map(([r, c], i) => cellName(r, c) + '(' + (i % 2 ? 'O' : 'X') + ')').join(' ') || '(none)'}\nLast move: ${last ? cellName(last[0], last[1]) + ' by ' + (moves.length % 2 ? 'X' : 'O') : 'none'}. Side to move: ${toMove === 1 ? 'X' : 'O'}.`;
+}
+function gmQuestions(over) {
+  const q = {
+    status: { type: 'choice', instructions: 'Has the game been decided? Look for five consecutive stones of one colour in a row, column or diagonal.', criteria: { black_wins: 'Black (X) has five in a row', white_wins: 'White (O) has five in a row', ongoing: 'No five in a row yet' } },
+    threat: { type: 'choice', instructions: 'Which side, if any, could complete five in a row with a single stone on its next turn?', criteria: { black: 'Black (X) has such a move', white: 'White (O) has such a move', none: 'Neither side can win in one move' } },
+    advantage: { type: 'score', instructions: 'Evaluate the position for the side to move and overall material/threats.', criteria: ['White (O) clearly winning', 'White (O) slightly better', 'Balanced', 'Black (X) slightly better', 'Black (X) clearly winning'] },
+  };
+  if (!over) q.best_move = { type: 'choice', instructions: `Which empty square is the best move for ${toMove === 1 ? 'X (black)' : 'O (white)'} to play next? Prefer winning moves, then blocking the opponent's four or open three, then extending own lines.`, criteria: Object.fromEntries(candidates().map(k => [k, null])) };
+  return q;
+}
+function gmTruth() {
+  const w = winner(board), status = w === 1 ? 'black_wins' : w === 2 ? 'white_wins' : 'ongoing';
+  const wb = winningMoves(1), ww = winningMoves(2); let threat = 'none', threatSet = [];
+  if (w === 0) { if (wb.length && ww.length) { threat = toMove === 1 ? 'black' : 'white'; threatSet = ['black', 'white']; } else if (wb.length) { threat = 'black'; threatSet = ['black']; } else if (ww.length) { threat = 'white'; threatSet = ['white']; } else threatSet = ['none']; }
+  return { status, threat, threatSet, wb, ww };
+}
+async function gmEvaluate() {
+  const over = winner(board) !== 0, q = gmQuestions(over); gmBusy = true; $('#gmMsg').textContent = '询问 Jev…';
+  let r; try { r = await callJev(boardText(), q); } catch (e) { $('#gmMsg').textContent = e.message; gmBusy = false; return null; }
+  gmBusy = false; const a = r.json.answers, t = gmTruth();
+  const okS = a.status.choice === t.status, okT = t.threatSet.includes(a.threat.choice);
+  tally.status[0] += okS; tally.status[1]++; tally.threat[0] += okT; tally.threat[1]++;
+  $('#gmTally').textContent = `胜负 ${tally.status[0]}/${tally.status[1]} · 威胁 ${tally.threat[0]}/${tally.threat[1]}`;
+  $('#gmMsg').textContent = `${r.clientMs.toFixed(0)} ms · ${r.json.usage.input_tokens} tok · ${Object.keys(q.best_move?.criteria || {}).length} 个候选点`;
+  const cell = (k, j, tr, ok) => `<span class="k">${k}</span><span><b>${esc(j)}</b></span><span>${esc(tr)}</span><span class="${ok ? 'ok' : 'no'}">${ok ? '✓' : '✗'}</span>`;
+  $('#gmTable').innerHTML = GT_HEAD +
+    cell('胜负', `${a.status.choice} (${fmtP(a.status.confidence)})`, t.status, okS) +
+    cell('一步制胜威胁', `${a.threat.choice} (${fmtP(a.threat.confidence)})`, `${t.threat}${t.wb.length ? ' X:' + t.wb.join(',') : ''}${t.ww.length ? ' O:' + t.ww.join(',') : ''}`, okT) +
+    `<span class="k">局面</span><span><b>${a.advantage.score}</b> / 4 (${fmtP(a.advantage.confidence)})</span><span class="muted">无精确真值</span><span></span>` +
+    (a.best_move ? `<span class="k">建议落点</span><span><b>${esc(a.best_move.choice)}</b> (${fmtP(a.best_move.confidence)})</span><span class="muted">${t.wb.length || t.ww.length ? '存在一步制胜点时应优先选它' : '—'}</span><span>${(toMove === 1 ? t.wb : t.ww).length ? ((toMove === 1 ? t.wb : t.ww).includes(a.best_move.choice) ? '<span class="ok">✓ 抓住制胜</span>' : '<span class="no">✗ 错过制胜</span>') : ''}</span>` : '');
+  renderAnswers($('#gmAnswers'), { answers: { status: a.status, threat: a.threat, advantage: a.advantage } }, q);
+  if (a.best_move) { const top = Object.entries(a.best_move.probabilities).sort((x, y) => y[1] - x[1]).slice(0, 8);
+    $('#gmAnswers').insertAdjacentHTML('afterbegin', `<div class="ans"><div class="hd"><b>best_move</b><span class="tag">choice · ${Object.keys(q.best_move.criteria).length} 候选</span></div><div class="pbars">${top.map(([k, p]) => `<div class="pbar ${k === a.best_move.choice ? 'win' : ''}"><span class="k">${k}</span><div class="bar"><i style="width:${p*100}%"></i></div><span>${fmtP(p)}</span></div>`).join('')}</div><div class="small muted" style="margin-top:6px">只显示前 8；confidence ${fmtP(a.best_move.confidence)}</div></div>`); }
+  return a;
+}
+function parseCell(s) { const m = /^([A-O])(\d+)$/.exec(s); return m ? [Number(m[2]) - 1, COLS.indexOf(m[1])] : null; }
+async function place(r, c) {
+  if (board[r][c] || gmBusy || winner(board)) return;
+  board[r][c] = toMove; moves.push([r, c]); toMove = 3 - toMove; renderBoard();
+  const w = winner(board); if (w) $('#gmMsg').textContent = (w === 1 ? '黑' : '白') + '方五连，游戏结束';
+  if (!$('#gmAsk').checked) return;
+  const a = await gmEvaluate(); if (!a || !a.best_move) return;
+  const g = parseCell(a.best_move.choice); if (!g) return;
+  if ($('#gmMode').value === 'pve' && toMove === 2 && !board[g[0]][g[1]]) { renderBoard(g); await new Promise(res => setTimeout(res, 500)); board[g[0]][g[1]] = 2; moves.push(g); toMove = 1; renderBoard(); if (winner(board)) { $('#gmMsg').textContent = '白方（Jev）五连！'; } else await gmEvaluate(); }
+  else renderBoard(g);
+}
+$('#board').addEventListener('click', e => { const d = e.target.closest('.cell'); if (d) place(Number(d.dataset.r), Number(d.dataset.c)); });
+$('#gmReset').onclick = gmReset;
+$('#gmRandom').onclick = async () => { const ask = $('#gmAsk').checked; $('#gmAsk').checked = false; const mode = $('#gmMode').value; $('#gmMode').value = 'pvp';
+  for (let i = 0; i < 6 && !winner(board); i++) { const cs = candidates().filter(k => k !== 'H8' || !board[7][7]); const k = parseCell(cs[Math.floor(Math.random() * cs.length)]); await place(k[0], k[1]); }
+  $('#gmAsk').checked = ask; $('#gmMode').value = mode; if (ask) await gmEvaluate(); };
+gmReset();
+</script>
+</body>
+</html>
