@@ -146,6 +146,21 @@ table{border-collapse:collapse;width:100%} th,td{text-align:left;padding:7px 8px
 .pscale{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px}
 .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 .sw.jev{background:var(--accent)} .sw.theory{background:var(--ok)}
+
+/* bias experiments */
+.hyp{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:10px 0 14px}
+.hyp .card{padding:10px 12px} .hyp b{font-family:var(--mono)}
+.scatter{width:100%;max-width:420px;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.scatter text{font:10px var(--mono);fill:var(--muted)}
+.bt td{font-size:12.5px} .bt .m{font-family:var(--mono)} .bt .hu{color:var(--warn)} .bt .ex{color:var(--ok)}
+.bt tr.pend td{color:var(--muted)}
+.closer-h{background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:700}
+.closer-e{background:#dcfce7;color:#166534;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:700}
+@media (prefers-color-scheme: dark){.closer-h{background:#78350f;color:#fde68a}.closer-e{background:#14532d;color:#bbf7d0}}
+.chk{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:12.5px}
+.chk .k{color:var(--muted)} .chk .v{font-family:var(--mono)}
+.hint{border-left:3px solid var(--accent);padding:8px 12px;background:var(--panel);border-radius:0 8px 8px 0;margin-bottom:10px}
+.hint h4{margin:0 0 4px} .hint .small{margin-bottom:6px}
 </style>
 </head>
 <body>
@@ -159,6 +174,7 @@ table{border-collapse:collapse;width:100%} th,td{text-align:left;padding:7px 8px
     <button data-tab="control">场景·实时控制</button>
     <button data-tab="gomoku">场景·五子棋判断</button>
     <button data-tab="prob">场景·概率论解题</button>
+    <button data-tab="bias">实验·认知偏差</button>
     <button data-tab="pros">优势与局限</button>
   </nav>
   <div class="spacer"></div>
@@ -375,6 +391,84 @@ table{border-collapse:collapse;width:100%} th,td{text-align:left;padding:7px 8px
       <button class="btn primary small" id="probCustomRun">评估 ▶</button>
     </div>
     <div id="probCustomResult" style="margin-top:10px"></div>
+  </div>
+</section>
+
+<!-- ===================== 认知偏差实验 ===================== -->
+<section class="tab" id="tab-bias">
+  <h2>实验 · Jev 的概率估计像人类直觉吗？</h2>
+  <p class="lead">Jev 是从文本预训练 LM 改造来的（官方 AI Primer），而且"识别答案的形状而不是真的计算"（官方 jaggedness 页）。一个自然的猜测：它对经典概率题的偏差会像人类直觉——基率谬误、赌徒谬误、幸存者偏差……这个 tab 用同一套 <code>noul</code> 命题重述法，把 Jev 的答案和<b>精确答案</b>、<b>文献里的人类典型答案</b>放在一起，看它站在哪边。</p>
+
+  <div class="hyp">
+    <div class="card"><b>H1</b> 人类直觉偏差<div class="small muted">在经典偏差题上，Jev 靠近人类典型的错误答案。</div></div>
+    <div class="card"><b>H2</b> 教科书检索<div class="small muted">著名题答对；结构相同但不出名的变体答错。</div></div>
+    <div class="card"><b>H3</b> 压缩效应<div class="small muted">与题目内容无关的单调压缩：小概率被抬高、大概率被压低。只有 A 组能把它和 H1 分开。</div></div>
+  </div>
+
+  <details class="small" style="margin-bottom:12px"><summary style="cursor:pointer" class="muted">每道题发出的请求长什么样（点开）</summary>
+    <pre id="biasReqDemo"></pre>
+    <div class="muted">只有 <code>state.problem</code> / <code>state.statement</code> 随题变化，instructions 固定。返回的 <code>noul</code> 值直接当作 P(statement 为真) = P(事件)。</div>
+  </details>
+
+  <div class="row" style="margin-bottom:12px">
+    <button class="btn primary" id="biasRunAll">运行全部（A 组 15 + B 组 22 + 医院题，并行）</button>
+    <button class="btn" id="biasRunA">只跑 A 组</button><button class="btn" id="biasRunB">只跑 B 组</button>
+    <label>每题重复 <select id="biasRep"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select> 次取均值</label>
+    <span class="small muted" id="biasMsg"></span>
+  </div>
+
+  <div class="grid g2" style="align-items:start">
+    <div class="card">
+      <h4>A 组 · 响应曲线（无偏差的简单事件，H3 对照）</h4>
+      <div class="small muted" style="margin-bottom:8px">真值从 0 铺到 1。如果点落在对角线上，Jev 是准的；单调但偏离对角线 = 压缩。</div>
+      <svg class="scatter" id="biasScatter" viewBox="0 0 320 320"></svg>
+      <table class="bt" style="margin-top:8px"><thead><tr><th>陈述</th><th>精确</th><th>Jev</th><th>Δ</th></tr></thead><tbody id="biasA"></tbody></table>
+    </div>
+    <div class="card">
+      <h4>B 组 · 偏差探针</h4>
+      <div class="small muted" style="margin-bottom:8px">"更接近"= |Jev−人类| 与 |Jev−精确| 谁小。人类典型值来自 Tversky & Kahneman、Casscells、Gigerenzer 等文献的众数/常见答案，是近似值。</div>
+      <table class="bt"><thead><tr><th>探针</th><th>精确</th><th>人类</th><th>Jev</th><th>更接近</th></tr></thead><tbody id="biasB"></tbody></table>
+      <div id="biasHosp" class="small" style="margin-top:8px"></div>
+      <h4 style="margin-top:14px">派生检验</h4>
+      <div class="chk" id="biasChecks"><span class="muted">跑完 B 组后显示</span></div>
+    </div>
+  </div>
+
+  <h3>自己做实验</h3>
+  <div class="grid g2" style="align-items:start">
+    <div class="card">
+      <h4>自定义探针</h4>
+      <label class="small muted">题目背景 problem</label><textarea id="bxProblem" rows="3"></textarea>
+      <label class="small muted" style="margin-top:6px">要判断为真的陈述 statement</label><textarea id="bxStatement" rows="2"></textarea>
+      <div class="row" style="margin-top:6px">
+        <label class="small">精确答案 % <input type="number" id="bxExact" step="0.01" min="0" max="100" style="width:90px"></label>
+        <label class="small">人类典型 % <input type="number" id="bxHuman" step="0.01" min="0" max="100" style="width:90px"></label>
+        <label class="small"><input type="checkbox" id="bxZh"> 用中文 instructions</label>
+        <button class="btn primary small" id="bxRun">评估 ▶</button>
+      </div>
+      <div id="bxResult" style="margin-top:8px"></div>
+      <table class="bt" style="margin-top:8px"><thead><tr><th>#</th><th>陈述</th><th>精确</th><th>人类</th><th>Jev</th><th>更接近</th></tr></thead><tbody id="bxLog"></tbody></table>
+    </div>
+    <div>
+      <div class="hint"><h4>实验 1 · 拟合并校正压缩曲线</h4>
+        <div class="small">A 组显示 p&lt;0.25 被系统性抬高。在 1/2、1/3 … 1/1000 密集采点，曲线单调的话就能用等渗回归做事后校正，把 noul 变成可用的估计器。</div>
+        <div class="row"><button class="btn small" id="bxCurve">跑 1/n 序列（n = 2…1000，12 点）</button><span class="small muted" id="bxCurveMsg"></span></div>
+        <div id="bxCurveOut" class="small" style="margin-top:6px"></div></div>
+      <div class="hint"><h4>实验 2 · "识字先验"检验</h4>
+        <div class="small">经典偏差在语料里被反复纠正，Jev 答对可能只是"读过科普"。找<b>没被广泛科普</b>的偏差，看 H1 会不会出现。点下面的例子装进左边表单，改数字再跑：</div>
+        <div class="row">
+          <button class="btn small" data-bx="regress">均值回归：飞行教官</button>
+          <button class="btn small" data-bx="smallnum">小数定律：民调</button>
+          <button class="btn small" data-bx="prisoners">三囚徒（已知它答错）</button>
+          <button class="btn small" data-bx="prisonersRe">三囚徒改写成"门"</button>
+        </div></div>
+      <div class="hint"><h4>实验 3 · 语言</h4>
+        <div class="small">勾选"用中文 instructions"并把 problem/statement 也写成中文，对比同一题的英文结果。官方说非英文可靠性下降——看它是让曲线更压缩，还是引入 H1。</div>
+        <div class="row"><button class="btn small" data-bx="zhBayes">装入中文版基率题</button><button class="btn small" data-bx="enBayes">装入英文版基率题</button></div></div>
+      <div class="hint"><h4>实验 4 · 反向问题</h4>
+        <div class="small">官方承认"反向问题不一定和为 1"。A 组里 ace + not-ace 已经能看到。试试把同一事件正反两问，看和偏离 1 多少、是不是总由小概率一侧抬高造成。</div>
+        <div class="row"><button class="btn small" data-bx="inv1">装入"抽到 A"</button><button class="btn small" data-bx="inv2">装入"没抽到 A"</button></div></div>
+    </div>
   </div>
 </section>
 
@@ -935,6 +1029,134 @@ $('#probCustomRun').onclick = async () => {
     const res = await callJev(state, { p: probQuestion(!!problem) });
     box.innerHTML = probResultHtml(res, theory);
   } catch (e) { box.innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+};
+
+/* ======================= 认知偏差实验 ======================= */
+const BIAS_INSTR = { en: probQuestion(true).instructions,
+  zh: '`problem` 给出了一个概率情境。请精确计算 `statement` 成立的数学概率，并把这个精确数值作为你的概率估计返回（这不是主观的是/否判断，数值本身就是答案）。' };
+const BIAS_A = [
+  ['die7', 'A fair six-sided die is rolled.', 'It shows a 7.', 0],
+  ['d36', 'Two fair six-sided dice are rolled.', 'Both dice show a 6.', 1/36],
+  ['ace', 'One card is drawn from a standard 52-card deck.', 'The card is an ace.', 1/13],
+  ['digit', 'A single digit is chosen uniformly at random from 0-9.', 'The digit is 7.', 0.1],
+  ['3heads', 'A fair coin is flipped three times.', 'All three flips are heads.', 0.125],
+  ['die1', 'A fair six-sided die is rolled.', 'It shows a 1.', 1/6],
+  ['2heads', 'A fair coin is flipped twice.', 'Both flips are heads.', 0.25],
+  ['heart', 'One card is drawn from a standard 52-card deck.', 'The card is a heart.', 0.25],
+  ['coin', 'A fair coin is flipped once.', 'It lands heads.', 0.5],
+  ['mere24', 'A pair of fair dice is rolled 24 times.', 'At least one roll is a double six.', 1 - (35/36) ** 24],
+  ['mere4', 'A fair six-sided die is rolled 4 times.', 'At least one roll shows a 6.', 1 - (5/6) ** 4],
+  ['die_le5', 'A fair six-sided die is rolled.', 'It shows 5 or less.', 5/6],
+  ['le90', 'An integer is chosen uniformly at random from 1 to 100.', 'The integer is 90 or less.', 0.9],
+  ['notace', 'One card is drawn from a standard 52-card deck.', 'The card is not an ace.', 12/13],
+  ['die_le6', 'A fair six-sided die is rolled.', 'It shows 6 or less.', 1],
+];
+const LINDA = 'Linda is 31, single, outspoken and very bright. She majored in philosophy. As a student she was deeply concerned with discrimination and social justice, and participated in anti-nuclear demonstrations.';
+const BILL = 'Bill is 34, intelligent but unimaginative, compulsive and generally lifeless. In school he was strong in mathematics but weak in social studies and humanities.';
+const MONTY = "Monty Hall game: 3 doors, one hides a car, two hide goats. You pick a door; the host, who knows what's behind each door, always opens a different door revealing a goat; you then switch to the remaining unopened door.";
+// [id, bias, problem, statement, exact, human, note]
+const BIAS_B = [
+  ['br_famous', '基率谬误（著名版）', 'A disease has prevalence 1 in 1000. A test detects it with 100% sensitivity and has a 5% false-positive rate. A person chosen at random from the population tests positive.', 'The person actually has the disease.', 0.001/(0.001+0.999*0.05), 0.95, 'Casscells 1978：众数答案 95%'],
+  ['br_novel', '基率谬误（陌生数字）', 'A condition has prevalence 0.2%. A screening test has 90% sensitivity and a 3% false-positive rate. A randomly chosen person tests positive.', 'The person actually has the condition.', 0.002*0.9/(0.002*0.9+0.998*0.03), 0.87, '典型：≈灵敏度'],
+  ['br_freq', '基率（自然频率格式）', 'Out of 10,000 people, 20 have a condition and 18 of those 20 test positive. Of the 9,980 without the condition, 299 test positive. One person from the 10,000 tests positive.', 'The person actually has the condition.', 18/317, 0.5, 'Gigerenzer：此格式约半数人答对'],
+  ['linda_A', '合取 Linda · 边缘', LINDA, 'Linda is a bank teller.', null, null, 'T&K 1983'],
+  ['linda_AB', '合取 Linda · 合取', LINDA, 'Linda is a bank teller and is active in the feminist movement.', null, null, '85% 的人把它排在边缘之上'],
+  ['bill_A', '合取 Bill · 边缘', BILL, 'Bill plays jazz for a hobby.', null, null, ''],
+  ['bill_AB', '合取 Bill · 合取', BILL, 'Bill is an accountant who plays jazz for a hobby.', null, null, ''],
+  ['gambler', '赌徒谬误', 'A fair coin has just landed heads six times in a row.', 'The next flip lands tails.', 0.5, 0.6, '"该出反面了" > 0.5'],
+  ['hothand', '热手（赌徒的镜像）', 'A fair coin has just landed heads six times in a row.', 'The next flip lands heads.', 0.5, 0.4, '应等于 1 − 赌徒'],
+  ['surv_one', '幸存者 · 单个经理', "A fund manager's result each year is an independent fair coin flip: beat the market or not.", 'This manager beats the market 10 years in a row.', 2 ** -10, 0.001, '人类这题大致能答对'],
+  ['surv_many', '幸存者 · 一万个经理', "There are 10,000 fund managers. Each manager's result each year is an independent fair coin flip: beat the market or not.", 'At least one of the 10,000 managers beats the market 10 years in a row.', 1 - (1 - 2 ** -10) ** 10000, 0.15, '直觉："10 连胜一定是本事" → 低'],
+  ['monty3', '蒙提霍尔（著名）', MONTY, 'You win the car.', 2/3, 0.5, '~85% 说 50/50'],
+  ['monty100', '蒙提霍尔（100 门）', 'A game has 100 doors; one hides a car, 99 hide goats. You pick a door. The host, who knows where the car is, opens 98 of the other doors, all revealing goats. You then switch to the one remaining unopened door.', 'You win the car.', 0.99, 0.5, '同样直觉 50/50'],
+  ['prisoners', '三囚徒（蒙提霍尔同构）', "Three prisoners A, B, C; exactly one, chosen at random, will be pardoned. The warden knows who. A asks the warden to name one of B or C who will NOT be pardoned (if both will be executed the warden picks one at random). The warden says 'B will be executed'.", 'A is the one who will be pardoned.', 1/3, 0.5, '经典错答 1/2'],
+  ['bday23', '生日 n=23（著名）', '23 people are in a room; birthdays independent and uniform over 365 days.', 'At least two share a birthday.', birthdayTheory(23, 365), 0.1, '直觉 ≈ 23/365'],
+  ['bday30', '生日 n=30', '30 people are in a room; birthdays independent and uniform over 365 days.', 'At least two share a birthday.', birthdayTheory(30, 365), 0.15, ''],
+  ['bday50', '生日 n=50', '50 people are in a room; birthdays independent and uniform over 365 days.', 'At least two share a birthday.', birthdayTheory(50, 365), 0.25, ''],
+  ['twochild', '两孩问题', 'A family has two children. Each child is independently a boy or a girl with equal probability. You learn that at least one of the two children is a boy.', 'Both children are boys.', 1/3, 0.5, '经典错答 1/2'],
+  ['frame_pos', '框架 · 存活框架', 'A surgery has a 90% survival rate.', 'A patient undergoing this surgery survives.', 0.9, 0.9, ''],
+  ['frame_neg', '框架 · 死亡框架', 'A surgery has a 10% mortality rate.', 'A patient undergoing this surgery survives.', 0.9, 0.9, '应与上一行相等'],
+  ['anchor_hi', '锚定 · 题干塞 85%', 'A recent survey found that 85% of respondents like pizza. Separately, a fair six-sided die is rolled.', 'The die shows a 1.', 1/6, null, '对照 A 组 die1'],
+  ['anchor_lo', '锚定 · 题干塞 2%', 'A recent survey found that 2% of respondents like anchovies. Separately, a fair six-sided die is rolled.', 'The die shows a 1.', 1/6, null, '对照 A 组 die1'],
+];
+const HOSP = { state: { problem: 'A large hospital has about 45 births a day, a small hospital about 15 births a day. About 50% of babies are boys, but the exact percentage varies day to day. For one year each hospital recorded the days on which more than 60% of the babies born were boys.' },
+  questions: { which: { type: 'choice', instructions: 'Which hospital recorded more such days?', criteria: { large: 'The large hospital (45 births/day)', small: 'The small hospital (15 births/day)', same: 'About the same (within 5% of each other)' } } } };
+const biasR = {};
+$('#biasReqDemo').textContent = JSON.stringify({ model: 'jev-latest', state: { problem: BIAS_A[5][1], statement: BIAS_A[5][2] }, questions: { p: { type: 'noul', instructions: BIAS_INSTR.en } } }, null, 2);
+
+async function biasNoul(problem, statement, lang = 'en') {
+  const n = Number($('#biasRep').value); let s = 0;
+  for (let i = 0; i < n; i++) { const r = await callJev({ problem, statement }, { p: { type: 'noul', instructions: BIAS_INSTR[lang] } }); s += r.json.answers.p.noul; }
+  return s / n;
+}
+const pct = v => v == null ? '—' : (v * 100).toFixed(1) + '%';
+const closer = (j, ex, hu) => (ex == null || hu == null) ? '' : Math.abs(j - hu) < Math.abs(j - ex) ? '<span class="closer-h">人类</span>' : '<span class="closer-e">精确</span>';
+function renderBiasA() {
+  $('#biasA').innerHTML = BIAS_A.map(([k, , s, ex]) => { const j = biasR[k];
+    return `<tr class="${j == null ? 'pend' : ''}"><td title="${esc(BIAS_A.find(x => x[0] === k)[1])}">${esc(s)}</td><td class="m ex">${pct(ex)}</td><td class="m">${pct(j)}</td><td class="m">${j == null ? '' : ((j - ex) * 100).toFixed(0).replace(/^(\d)/, '+$1') + ' pt'}</td></tr>`; }).join('');
+  const P = 34, W = 320 - P - 10, x = v => P + v * W, y = v => 320 - P - v * W;
+  const pts = BIAS_A.filter(([k]) => biasR[k] != null);
+  $('#biasScatter').innerHTML = `<line x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(1)}" stroke="var(--line)" stroke-dasharray="4 3"/>
+    ${[0, .25, .5, .75, 1].map(t => `<text x="${x(t)}" y="${320 - P + 14}" text-anchor="middle">${t}</text><text x="${P - 6}" y="${y(t) + 3}" text-anchor="end">${t}</text><line x1="${x(t)}" y1="${y(0)}" x2="${x(t)}" y2="${y(0) + 4}" stroke="var(--muted)"/><line x1="${x(0) - 4}" y1="${y(t)}" x2="${x(0)}" y2="${y(t)}" stroke="var(--muted)"/>`).join('')}
+    <line x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(0)}" stroke="var(--muted)"/><line x1="${x(0)}" y1="${y(0)}" x2="${x(0)}" y2="${y(1)}" stroke="var(--muted)"/>
+    <text x="${x(.5)}" y="316" text-anchor="middle">精确概率</text><text x="10" y="${y(.5)}" transform="rotate(-90 10 ${y(.5)})" text-anchor="middle">Jev 估计</text>
+    ${pts.map(([k, , s, ex]) => `<circle cx="${x(ex)}" cy="${y(biasR[k])}" r="4" fill="var(--accent)"><title>${esc(s)}: 精确 ${pct(ex)} → Jev ${pct(biasR[k])}</title></circle>`).join('')}`;
+}
+function renderBiasB() {
+  $('#biasB').innerHTML = BIAS_B.map(([k, bias, p, s, ex, hu, note]) => { const j = biasR[k];
+    return `<tr class="${j == null ? 'pend' : ''}"><td title="${esc(p)}\n\n→ ${esc(s)}">${esc(bias)}${note ? `<div class="muted" style="font-size:11px">${esc(note)}</div>` : ''}</td><td class="m ex">${pct(ex)}</td><td class="m hu">${pct(hu)}</td><td class="m"><b>${pct(j)}</b></td><td>${j == null ? '' : closer(j, ex, hu)}</td></tr>`; }).join('');
+  const j = biasR, f = v => v == null ? '—' : v.toFixed(2);
+  if (BIAS_B.every(([k]) => j[k] != null)) $('#biasChecks').innerHTML = [
+    ['合取 Linda', `P(A∧B)=${f(j.linda_AB)} vs P(A)=${f(j.linda_A)} → ${j.linda_AB > j.linda_A ? '<b style="color:var(--bad)">出现合取谬误</b>' : '<b style="color:var(--ok)">一致</b>'}`],
+    ['合取 Bill', `P(A∧B)=${f(j.bill_AB)} vs P(A)=${f(j.bill_A)} → ${j.bill_AB > j.bill_A ? '<b style="color:var(--bad)">出现合取谬误</b>' : '<b style="color:var(--ok)">一致</b>'}`],
+    ['赌徒 + 热手', `${f(j.gambler + j.hothand)}（应为 1.00）`],
+    ['框架', `存活框架 ${f(j.frame_pos)} vs 死亡框架 ${f(j.frame_neg)}（应相等）`],
+    ['锚定', `die1 基线 ${f(j.die1)} · 塞 85% → ${f(j.anchor_hi)} · 塞 2% → ${f(j.anchor_lo)}`],
+    ['蒙提霍尔家族', `3 门 ${f(j.monty3)}（.667）· 100 门 ${f(j.monty100)}（.99）· 三囚徒 ${f(j.prisoners)}（.333）`],
+    ['生日家族', `n=23 ${f(j.bday23)}（.507）· n=30 ${f(j.bday30)}（.706）· n=50 ${f(j.bday50)}（.970）`],
+    ['A + 非A', j.ace != null ? `抽到A ${f(j.ace)} + 没抽到A ${f(j.notace)} = ${f(j.ace + j.notace)}（应为 1.00）` : '需要先跑 A 组'],
+  ].map(([k, v]) => `<span class="k">${k}</span><span class="v">${v}</span>`).join('');
+}
+async function biasRun(list, render) {
+  await Promise.all(list.map(async ([k, p, s]) => { try { biasR[k] = await biasNoul(p, s); } catch (e) { biasR[k] = null; $('#biasMsg').textContent = e.message; } render(); }));
+}
+const biasRunB = async () => { await biasRun(BIAS_B.map(([k, , p, s]) => [k, p, s]), renderBiasB);
+  try { const r = await callJev(HOSP.state, HOSP.questions); const a = r.json.answers.which;
+    $('#biasHosp').innerHTML = `<b>医院样本量题（choice）</b>：Jev = <b class="m">${esc(a.choice)}</b>（置信 ${fmtP(a.confidence)}；${Object.entries(a.probabilities).map(([k, v]) => `${k} ${fmtP(v)}`).join(' · ')}）· 精确 = <span class="ex">small</span> · 人类 = <span class="hu">same</span>（56%，T&K 1974）`; } catch (e) { $('#biasHosp').innerHTML = `<div class="err">${esc(e.message)}</div>`; } };
+const biasRunA = () => biasRun(BIAS_A.map(([k, p, s]) => [k, p, s]), renderBiasA);
+$('#biasRunA').onclick = async () => { $('#biasMsg').textContent = '请求中…'; const t = performance.now(); await biasRunA(); $('#biasMsg').textContent = `A 组完成 ${(performance.now() - t).toFixed(0)} ms`; };
+$('#biasRunB').onclick = async () => { $('#biasMsg').textContent = '请求中…'; const t = performance.now(); await biasRunB(); renderBiasB(); $('#biasMsg').textContent = `B 组完成 ${(performance.now() - t).toFixed(0)} ms`; };
+$('#biasRunAll').onclick = async () => { $('#biasMsg').textContent = '请求中…'; const t = performance.now(); await Promise.all([biasRunA(), biasRunB()]); renderBiasB(); $('#biasMsg').textContent = `全部完成 ${(performance.now() - t).toFixed(0)} ms`; };
+renderBiasA(); renderBiasB();
+
+// 自定义探针
+let bxN = 0;
+$('#bxRun').onclick = async () => {
+  const p = $('#bxProblem').value.trim(), s = $('#bxStatement').value.trim(); if (!s) return;
+  const ex = $('#bxExact').value === '' ? null : Number($('#bxExact').value) / 100, hu = $('#bxHuman').value === '' ? null : Number($('#bxHuman').value) / 100;
+  $('#bxResult').innerHTML = '<span class="muted small">请求中…</span>';
+  try {
+    const j = await biasNoul(p, s, $('#bxZh').checked ? 'zh' : 'en');
+    $('#bxResult').innerHTML = probCompareHtml(j, ex);
+    $('#bxLog').insertAdjacentHTML('afterbegin', `<tr><td>${++bxN}</td><td title="${esc(p)}">${esc(s)}${$('#bxZh').checked ? ' <span class="tag">zh</span>' : ''}</td><td class="m ex">${pct(ex)}</td><td class="m hu">${pct(hu)}</td><td class="m"><b>${pct(j)}</b></td><td>${closer(j, ex, hu)}</td></tr>`);
+  } catch (e) { $('#bxResult').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+};
+const BX_EXAMPLES = {
+  regress: ['Flight instructors observed that when they praised a trainee after an unusually good landing, the next landing was usually worse; when they criticised after an unusually bad landing, the next one was usually better. Landing quality is mostly random around each trainee\'s skill level.', 'A trainee\'s next landing after an unusually good one will be worse than that good one.', 75, 50],
+  smallnum: ['Two polls ask the same yes/no question. Poll X samples 20 people, poll Y samples 2,000 people. The true population split is exactly 50/50.', 'Poll X (n=20) shows a result of 70% or more "yes".', 5.8, 20],
+  prisoners: ["Three prisoners A, B, C; exactly one, chosen at random, will be pardoned. The warden knows who. A asks the warden to name one of B or C who will NOT be pardoned (if both will be executed the warden picks one at random). The warden says 'B will be executed'.", 'A is the one who will be pardoned.', 33.33, 50],
+  prisonersRe: ['Three doors A, B, C; exactly one, chosen at random, hides a prize. The host knows which. You hold door A and ask the host to open one of B or C that does NOT hide the prize (if neither does, the host picks one at random). The host opens B, showing nothing.', 'The prize is behind door A (the door you hold).', 33.33, 50],
+  zhBayes: ['某种疾病的患病率为千分之一。检测的灵敏度为 100%，假阳性率为 5%。从人群中随机抽取一人，检测结果为阳性。', '这个人确实患有该病。', 1.96, 95],
+  enBayes: ['A disease has prevalence 1 in 1000. A test detects it with 100% sensitivity and has a 5% false-positive rate. A person chosen at random from the population tests positive.', 'The person actually has the disease.', 1.96, 95],
+  inv1: ['One card is drawn from a standard 52-card deck.', 'The card is an ace.', 7.69, null],
+  inv2: ['One card is drawn from a standard 52-card deck.', 'The card is not an ace.', 92.31, null],
+};
+$$('[data-bx]').forEach(b => b.onclick = () => { const [p, s, ex, hu] = BX_EXAMPLES[b.dataset.bx]; $('#bxProblem').value = p; $('#bxStatement').value = s; $('#bxExact').value = ex ?? ''; $('#bxHuman').value = hu ?? ''; $('#bxZh').checked = b.dataset.bx === 'zhBayes'; $('#bxStatement').focus(); });
+$('#bxCurve').onclick = async () => {
+  const ns = [2, 3, 4, 6, 10, 20, 36, 50, 100, 200, 500, 1000]; $('#bxCurveMsg').textContent = '请求中…';
+  const rows = await Promise.all(ns.map(async n => { const j = await biasNoul(`An integer is chosen uniformly at random from 1 to ${n}.`, 'The chosen integer is exactly 1.'); return [n, 1 / n, j]; }));
+  $('#bxCurveMsg').textContent = '完成';
+  $('#bxCurveOut').innerHTML = `<table class="bt"><thead><tr><th>n</th><th>精确 1/n</th><th>Jev</th><th>倍数</th></tr></thead><tbody>${rows.map(([n, ex, j]) => `<tr><td class="m">${n}</td><td class="m ex">${pct(ex)}</td><td class="m"><b>${pct(j)}</b></td><td class="m">${(j / ex).toFixed(1)}×</td></tr>`).join('')}</tbody></table><div class="muted" style="margin-top:4px">单调则可校正；"倍数"列显示小概率被抬高的程度。</div>`;
 };
 </script>
 </body>
