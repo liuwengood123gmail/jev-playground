@@ -134,6 +134,18 @@ table{border-collapse:collapse;width:100%} th,td{text-align:left;padding:7px 8px
 .gt{display:grid;grid-template-columns:auto 1fr 1fr auto;gap:6px 14px;font-size:12.5px;align-items:center}
 .gt .k{color:var(--muted)} .gt .ok{color:var(--ok);font-weight:700} .gt .no{color:var(--bad);font-weight:700}
 .tally{font-family:var(--mono);font-size:13px}
+
+/* probability */
+.pcompare{position:relative;height:44px;margin:22px 4px 2px}
+.pcompare .track{position:absolute;left:0;right:0;top:18px;height:8px;background:var(--code);border-radius:4px}
+.pcompare .mk{position:absolute;top:10px;width:0;height:24px;border-left:3px solid var(--accent)}
+.pcompare .mk.theory{border-left:2px dashed var(--ok)}
+.pcompare .lbl{position:absolute;transform:translateX(-50%);font:700 11px var(--mono);white-space:nowrap}
+.pcompare .lbl.jev{top:-16px;color:var(--accent)}
+.pcompare .lbl.theory{top:36px;color:var(--ok)}
+.pscale{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+.sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.sw.jev{background:var(--accent)} .sw.theory{background:var(--ok)}
 </style>
 </head>
 <body>
@@ -146,6 +158,7 @@ table{border-collapse:collapse;width:100%} th,td{text-align:left;padding:7px 8px
     <button data-tab="news">场景·新闻情绪</button>
     <button data-tab="control">场景·实时控制</button>
     <button data-tab="gomoku">场景·五子棋判断</button>
+    <button data-tab="prob">场景·概率论解题</button>
     <button data-tab="pros">优势与局限</button>
   </nav>
   <div class="spacer"></div>
@@ -342,6 +355,29 @@ table{border-collapse:collapse;width:100%} th,td{text-align:left;padding:7px 8px
   </div>
 </section>
 
+<!-- ===================== 概率论 ===================== -->
+<section class="tab" id="tab-prob">
+  <h2>场景 · 概率论解题</h2>
+  <p class="lead">这些题目都有唯一确定的数学答案，但 Jev 不解方程——它只做一件事：给一个"陈述为真"的校准概率。诀窍是把"求概率 P"改写成一句<b>可能为真也可能为假的陈述</b>（比如"这个次品来自 A 线"），让 <code>noul</code> 判断<b>这句话为真的概率</b>——那正好就是我们要求的 P。不用分档、不用换算，<code>noul</code> 返回的数值本身就是连续的 0–1 估计，直接拿来和精确理论值对比。</p>
+  <div class="row" style="margin-bottom:14px"><button class="btn primary" id="probEvalAll">评估全部 6 题（并行）</button><span class="small muted" id="probMsg"></span></div>
+  <div class="grid g3" id="probGrid"></div>
+
+  <h3>自定义题目</h3>
+  <div class="card">
+    <div class="small muted" style="margin-bottom:8px">把你要求的概率改写成一个"可能为真或假"的陈述——Jev 返回的就是这句话为真的概率，等于你要求的那个数。例如"掷两枚骰子，求点数之和为 7 的概率"→ 陈述"这两枚骰子的点数之和为 7"。</div>
+    <label class="small muted">题目背景（可选，给出必要的数据 / 设定，留空则只发送陈述本身）</label>
+    <textarea id="probCustomProblem" rows="3" placeholder="例如：一个袋子里有 5 个红球和 3 个蓝球，不放回摸两个球。"></textarea>
+    <label class="small muted" style="margin-top:8px">要判断为真的陈述（必填）</label>
+    <textarea id="probCustomStatement" rows="2" placeholder="例如：摸出的两个球颜色相同。"></textarea>
+    <div class="row" style="margin-top:8px">
+      <label class="small">已知理论答案（可选，%，用于对比）</label>
+      <input type="number" id="probCustomTheory" min="0" max="100" step="0.01" style="width:100px" placeholder="例如 46.43">
+      <button class="btn primary small" id="probCustomRun">评估 ▶</button>
+    </div>
+    <div id="probCustomResult" style="margin-top:10px"></div>
+  </div>
+</section>
+
 <!-- ===================== 优势 ===================== -->
 <section class="tab" id="tab-pros">
   <h2>优势与局限</h2>
@@ -361,11 +397,12 @@ table{border-collapse:collapse;width:100%} th,td{text-align:left;padding:7px 8px
     <li>非英文输入、图片 / 音频输入——目前纯文本，英文最可靠。</li>
     <li>需要多步推理的复杂判断——官方建议拆成多个原子问题（Composite Scoring），由代码组合。</li>
   </ul>
-  <h3>本页用到的三个官方模式</h3>
+  <h3>本页用到的模式</h3>
   <div class="grid g3">
-    <div class="card"><h4>Composite Scoring</h4><div class="small">新闻场景：4 个原子答案 → 代码里的公式 → 一个信号。权重可审计、可调。</div></div>
-    <div class="card"><h4>Confidence-Gated Routing</h4><div class="small">控制场景：置信度 ≥ 阈值直接执行，否则要求确认；安全敏感动作阈值更高。</div></div>
-    <div class="card"><h4>Fan-out + 高基数 Choice</h4><div class="small">五子棋场景：一次请求 4 个问题；"最佳落点"的候选集合就是所有空位。</div></div>
+    <div class="card"><h4>Composite Scoring<span class="tag" style="margin-left:6px">官方</span></h4><div class="small">新闻场景：4 个原子答案 → 代码里的公式 → 一个信号。权重可审计、可调。</div></div>
+    <div class="card"><h4>Confidence-Gated Routing<span class="tag" style="margin-left:6px">官方</span></h4><div class="small">控制场景：置信度 ≥ 阈值直接执行，否则要求确认；安全敏感动作阈值更高。</div></div>
+    <div class="card"><h4>Fan-out + 高基数 Choice<span class="tag" style="margin-left:6px">官方</span></h4><div class="small">五子棋场景：一次请求 4 个问题；"最佳落点"的候选集合就是所有空位。</div></div>
+    <div class="card"><h4>命题重述取概率<span class="tag" style="margin-left:6px">本页技巧</span></h4><div class="small">概率论场景：noul 本意是"判断一句话为真的概率"；把数学题的答案 P 改写成一句陈述，让这句话"为真"恰好等价于事件发生，就把 noul 变成了一个连续概率读数器。不是 TypeSafe 文档里的命名模式，但完全基于官方语义。</div></div>
   </div>
   <p class="small muted">参考：docs.typesafe.ai（Models / API Reference / Confidence / Patterns）。</p>
 </section>
@@ -805,6 +842,100 @@ $('#gmRandom').onclick = async () => { const ask = $('#gmAsk').checked; $('#gmAs
   for (let i = 0; i < 6 && !winner(board); i++) { const cs = candidates().filter(k => k !== 'H8' || !board[7][7]); const k = parseCell(cs[Math.floor(Math.random() * cs.length)]); await place(k[0], k[1]); }
   $('#gmAsk').checked = ask; $('#gmMode').value = mode; if (ask) await gmEvaluate(); };
 gmReset();
+
+/* ======================= 概率论解题 ======================= */
+function birthdayTheory(n, days) { let p = 1; for (let i = 0; i < n; i++) p *= (days - i) / days; return 1 - p; }
+const PROB_PRESETS = [
+  { id: 'bayes', title: '贝叶斯定理 · 工厂次品',
+    zh: '某工厂生产 A、B、C 三种产品，产量占比 P(A)=1/2，P(B)=1/6，P(C)=1/3；次品率分别为 P(次品|A)=0.2，P(次品|B)=0.1，P(次品|C)=0.3。现随机抽到一个次品，求它是 A 生产的概率 P(A|次品)。',
+    problem: "A factory makes products on lines A, B, C with output shares P(A)=1/2, P(B)=1/6, P(C)=1/3, and defect rates P(defect|A)=0.2, P(defect|B)=0.1, P(defect|C)=0.3. A randomly inspected product is found defective.",
+    statement: 'The defective product came from line A.',
+    theory: 6 / 13,
+    explain: '全概率公式：P(次品) = 1/2×0.2 + 1/6×0.1 + 1/3×0.3 = 1/10 + 1/60 + 1/10 = 13/60。\n贝叶斯公式：P(A|次品) = (1/2×0.2) / (13/60) = (1/10) / (13/60) = 6/13 ≈ 0.4615。' },
+  { id: 'monty', title: '蒙提霍尔问题',
+    zh: '三扇门，一扇后面是汽车，两扇是山羊。你先选一扇门，主持人知道每扇门后面是什么，并打开另外两扇门中有山羊的一扇，问你要不要换到剩下那扇门。如果总是换门，赢得汽车的概率是多少？',
+    problem: "Monty Hall game: 3 doors, one hides a car, two hide goats. You pick a door; the host, who knows what's behind each door, always opens a different door revealing a goat; you then switch to the remaining unopened door.",
+    statement: 'You win the car.',
+    theory: 2 / 3,
+    explain: '先选中汽车的概率是 1/3（这种情况下换门必输）；先选中山羊的概率是 2/3（此时主持人被迫排除唯一的山羊门，换门必中）。所以换门赢的概率 = 2/3 ≈ 0.6667。' },
+  { id: 'dice', title: '两枚骰子点数之和为 7',
+    zh: '掷两枚均匀骰子，点数之和等于 7 的概率是多少？',
+    problem: 'Two fair six-sided dice are rolled.',
+    statement: 'The sum of the two dice is exactly 7.',
+    theory: 1 / 6,
+    explain: '36 种等概率组合中，和为 7 的有 (1,6)(2,5)(3,4)(4,3)(5,2)(6,1) 共 6 种。概率 = 6/36 = 1/6 ≈ 0.1667。' },
+  { id: 'birthday', title: '生日悖论（23 人）',
+    zh: '一个房间里有 23 个人（生日均匀分布在 365 天中，忽略闰年），至少有两个人生日相同的概率是多少？',
+    problem: '23 people are in a room, birthdays independent and uniform over 365 days (ignore leap years).',
+    statement: 'At least two of the 23 people share a birthday.',
+    theory: birthdayTheory(23, 365),
+    explain: '补集：所有人生日都不同的概率 = 365×364×…×343 / 365²³ ≈ 0.4927。所以至少两人相同的概率 ≈ 1 − 0.4927 ≈ 0.5073。' },
+  { id: 'balls', title: '不放回摸球颜色相同',
+    zh: '一个袋子里有 5 个红球和 3 个蓝球，不放回地连续摸出两个球，求两个球颜色相同的概率。',
+    problem: 'A bag has 5 red balls and 3 blue balls. Two balls are drawn one at a time without replacement.',
+    statement: 'Both balls drawn are the same color.',
+    theory: 13 / 28,
+    explain: 'P(两红) = 5/8×4/7 = 20/56；P(两蓝) = 3/8×2/7 = 6/56；P(同色) = 26/56 = 13/28 ≈ 0.4643。' },
+  { id: 'coin', title: '硬币首次正面在第 3 次',
+    zh: '连续抛掷一枚均匀硬币，直到第一次出现正面为止，求恰好需要抛 3 次的概率。',
+    problem: 'A fair coin is flipped repeatedly until the first head appears.',
+    statement: 'The first head appears on exactly the 3rd flip.',
+    theory: 0.125,
+    explain: '需要前两次都是反面、第三次是正面：P = (1/2)×(1/2)×(1/2) = 1/8 = 0.125。' },
+];
+function probQuestion(hasProblem) {
+  return { type: 'noul', instructions: (hasProblem ? '`problem` sets up a probability scenario. ' : '') + 'Compute the exact mathematical probability that `statement` holds, then return that exact value as your probability estimate (not a subjective yes/no judgment — the number itself is the answer).' };
+}
+function probCompareHtml(jevFrac, theoryFrac) {
+  const jevPct = jevFrac * 100, theoryPct = theoryFrac == null ? null : theoryFrac * 100;
+  const diff = theoryPct == null ? null : Math.abs(jevPct - theoryPct);
+  return `<div class="pcompare"><div class="track"></div>
+    <div class="mk jev" style="left:${jevPct}%"></div><div class="lbl jev" style="left:${jevPct}%">Jev ${jevPct.toFixed(1)}%</div>
+    ${theoryPct != null ? `<div class="mk theory" style="left:${theoryPct}%"></div><div class="lbl theory" style="left:${theoryPct}%">理论 ${theoryPct.toFixed(2)}%</div>` : ''}</div>
+    <div class="pscale"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+    <div class="row small" style="margin-top:16px">
+      <span><i class="sw jev"></i>Jev 估计 <b style="font-family:var(--mono)">${jevPct.toFixed(1)}%</b></span>
+      ${theoryPct != null ? `<span><i class="sw theory"></i>理论值 <b style="font-family:var(--mono)">${theoryPct.toFixed(2)}%</b></span><span>误差 <b style="font-family:var(--mono)">${diff.toFixed(1)}</b> 个百分点</span>` : '<span class="muted">未填理论值，仅显示 Jev 的估计</span>'}
+    </div>`;
+}
+function probResultHtml(res, theoryFrac) {
+  const a = res.json.answers.p;
+  return `<div class="summary" style="border:0;padding:0 0 4px">${summaryHtml(res)}</div>${probCompareHtml(a.noul, theoryFrac)}`;
+}
+$('#probGrid').innerHTML = PROB_PRESETS.map(p => `
+  <div class="card pcard" data-id="${p.id}">
+    <h4>${esc(p.title)} <span class="tag">noul</span></h4>
+    <div class="small" style="white-space:pre-wrap">${esc(p.zh)}</div>
+    <details class="small muted" style="margin:8px 0"><summary style="cursor:pointer">查看推导</summary><div style="white-space:pre-wrap;margin-top:4px">${esc(p.explain)}</div></details>
+    <div class="row"><button class="btn small primary" data-eval="${p.id}">评估 ▶</button><span class="small muted" data-msg></span></div>
+    <div data-result style="margin-top:6px"></div>
+  </div>`).join('');
+async function probEvalPreset(id) {
+  const p = PROB_PRESETS.find(x => x.id === id), card = $(`.pcard[data-id="${id}"]`);
+  $('[data-msg]', card).textContent = '请求中…'; $('[data-result]', card).innerHTML = '';
+  try {
+    const res = await callJev({ problem: p.problem, statement: p.statement }, { p: probQuestion(true) });
+    $('[data-msg]', card).textContent = '';
+    $('[data-result]', card).innerHTML = probResultHtml(res, p.theory);
+  } catch (e) { $('[data-msg]', card).textContent = ''; $('[data-result]', card).innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+$('#probGrid').addEventListener('click', e => { const b = e.target.closest('[data-eval]'); if (b) probEvalPreset(b.dataset.eval); });
+$('#probEvalAll').onclick = async () => {
+  $('#probMsg').textContent = '请求中…'; const t0 = performance.now();
+  await Promise.all(PROB_PRESETS.map(p => probEvalPreset(p.id)));
+  $('#probMsg').textContent = `6 题并行完成，总耗时 ${(performance.now() - t0).toFixed(0)} ms`;
+};
+$('#probCustomRun').onclick = async () => {
+  const statement = $('#probCustomStatement').value.trim(); if (!statement) return;
+  const problem = $('#probCustomProblem').value.trim();
+  const tv = $('#probCustomTheory').value.trim(); const theory = tv === '' ? null : Number(tv) / 100;
+  const box = $('#probCustomResult'); box.innerHTML = '<span class="muted small">请求中…</span>';
+  try {
+    const state = problem ? { problem, statement } : { statement };
+    const res = await callJev(state, { p: probQuestion(!!problem) });
+    box.innerHTML = probResultHtml(res, theory);
+  } catch (e) { box.innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+};
 </script>
 </body>
 </html>
