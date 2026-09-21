@@ -405,11 +405,22 @@ table{border-collapse:collapse;width:100%} th,td{text-align:left;padding:7px 8px
     <div class="card"><b>H3</b> 压缩效应<div class="small muted">与题目内容无关的单调压缩：小概率被抬高、大概率被压低。只有 A 组能把它和 H1 分开。</div></div>
   </div>
 
-  <details class="small" style="margin-bottom:12px"><summary style="cursor:pointer" class="muted">每道题发出的请求长什么样（点开）</summary>
-    <pre id="biasReqDemo"></pre>
-    <div class="muted">只有 <code>state.problem</code> / <code>state.statement</code> 随题变化，instructions 固定。返回的 <code>noul</code> 值直接当作 P(statement 为真) = P(事件)。</div>
-  </details>
+  <h3>① 实验方案</h3>
+  <div class="grid g3" style="margin-bottom:12px">
+    <div class="card"><h4>怎么让 Jev "报一个概率"</h4><div class="small">Jev 没有"返回一个数"的原语，直接问"概率是多少"会得到一个和题目无关的 0.7 左右（已验证）。做法是<b>命题重述</b>：把 P(事件) 改写成一句可真可假的陈述 <code>statement</code>，背景数据放 <code>problem</code>，用 <code>noul</code> 问"这句话为真的概率"。因为"陈述为真"⇔"事件发生"，返回值在语义上就是 P(事件)，无需换算。</div>
+      <details class="small" style="margin-top:6px"><summary style="cursor:pointer" class="muted">完整请求示例</summary><pre id="biasReqDemo"></pre></details></div>
+    <div class="card"><h4>怎么区分三种解释</h4><div class="small">
+      <b>A 组</b>（15 题）是对照：无任何认知偏差的简单事件，真值从 0 铺到 1。它只回答一件事——Jev 的响应曲线本身长什么样（H3）。<br>
+      <b>B 组</b>（22 题 + 1 道 choice）每题有三个参考点：精确答案、文献里的人类典型答案、Jev。人类和精确分道扬镳的地方，看 Jev 站哪边（H1）。<br>
+      B 组里故意放了<b>同构对</b>：蒙提霍尔 3 门 / 100 门 / 三囚徒，生日 23 / 30 / 50，基率著名版 / 陌生数字版——著名题对、变体错 = H2。</div></div>
+    <div class="card"><h4>控制与读法</h4><div class="small">
+      · 同一请求重复 4 次，noul 波动 ≤ 0.02，所以默认每题 2 次取均值。<br>
+      · 两个模型（jev-latest / jev-preview）都跑；顶部切换后重跑即可对比。<br>
+      · "更接近"列 = |Jev−人类| 与 |Jev−精确| 谁小。注意 A 组给出的压缩效应会让 B 组小概率题（如基率）残差偏高——归因前先看 A 组。<br>
+      · 派生检验看的是<b>一致性</b>而不是准确度：合取 P(A∧B) ≤ P(A)、正反问和为 1、换框架/加锚不变——违反任何一条都是模型内部不自洽。</div></div>
+  </div>
 
+  <h3>② 运行 <span class="small muted">（点任意一行展开题目解释：中文题面 · 偏差机制 · 精确推导 · 人类数据出处）</span></h3>
   <div class="row" style="margin-bottom:12px">
     <button class="btn primary" id="biasRunAll">运行全部（A 组 15 + B 组 22 + 医院题，并行）</button>
     <button class="btn" id="biasRunA">只跑 A 组</button><button class="btn" id="biasRunB">只跑 B 组</button>
@@ -434,7 +445,17 @@ table{border-collapse:collapse;width:100%} th,td{text-align:left;padding:7px 8px
     </div>
   </div>
 
-  <h3>自己做实验</h3>
+  <h3>③ 结果分析</h3>
+  <div class="card" id="biasAnalysis"><span class="small muted">跑完 A 组和 B 组后自动生成。下面是参考结论，来自 2026-09-20 对两个模型各跑两轮的结果（<code>experiments/results.md</code>）。</span>
+    <div class="grid g3" style="margin-top:10px">
+      <div class="card" style="background:var(--bg)"><h4>H1 人类直觉偏差 → <span style="color:var(--bad)">不成立</span></h4><div class="small">11 个"人类与数学分道扬镳"的探针，Jev 全部站在数学一边：基率题给 0.12–0.13（人类 0.95），赌徒谬误 0.50，两孩 0.33，医院题以 0.99 置信选 small，合取一致，框架和锚定都不动。唯一例外三囚徒 0.46，卡在 1/3 和 1/2 之间。<br><b>为什么反了</b>：语料里关于这些偏差的文字绝大多数是<i>在纠正直觉</i>的教科书和科普。Jev 继承的是"读过科普的人"的先验，不是"没读过的人"的直觉。</div></div>
+      <div class="card" style="background:var(--bg)"><h4>H2 教科书检索 → <span style="color:var(--warn)">弱证据</span></h4><div class="small">蒙提霍尔 3 门 0.69、100 门 0.96 都对——换门数不影响，说明不是死记"2/3"。但换成三囚徒的叙事就掉到 0.46；上一个 tab 里"骰子和为 7"给 0.48 也是同类：语料里"7 是最常见的和"这个<i>形状</i>把它抬高了。官方 jaggedness 页的原话："recognizes the shape of an answer rather than tallying"。</div></div>
+      <div class="card" style="background:var(--bg)"><h4>H3 压缩效应 → <span style="color:var(--ok)">主要误差来源</span></h4><div class="small">A 组曲线单调，两端准（0→0.02，1→0.98，因为"不可能/必然"有语义），但 <b>0.03–0.25 被抬到 0.15–0.35</b>，0.8–0.95 轻微压低。1/n 序列进一步显示 p&lt;5% 时<b>卡在 10–15% 的地板</b>不再下降。它解释了 B 组几乎所有残差：基率题的 0.12 不是"部分基率谬误"，就是小概率抬高；ace+not-ace=1.20 也是同一效应。</div></div>
+    </div>
+    <div class="small muted" style="margin-top:10px">结论：Jev 的偏差结构是<b>非人类的</b>——对题目内容不敏感的低端压缩 + 答案形状识别。想把 noul 当估计器用：p ≥ 5% 的区间可以用等渗回归事后校正，5% 以下不可用；同一事件应正反两问取平均以抵消单侧抬高。</div>
+  </div>
+
+  <h3>④ 自己做实验</h3>
   <div class="grid g2" style="align-items:start">
     <div class="card">
       <h4>自定义探针</h4>
@@ -1081,7 +1102,54 @@ const BIAS_B = [
 ];
 const HOSP = { state: { problem: 'A large hospital has about 45 births a day, a small hospital about 15 births a day. About 50% of babies are boys, but the exact percentage varies day to day. For one year each hospital recorded the days on which more than 60% of the babies born were boys.' },
   questions: { which: { type: 'choice', instructions: 'Which hospital recorded more such days?', criteria: { large: 'The large hospital (45 births/day)', small: 'The small hospital (15 births/day)', same: 'About the same (within 5% of each other)' } } } };
+// 题目解释：zh 题面 · why 偏差机制 / 人类为什么错 · calc 精确推导 · src 人类数据出处
+const BIAS_EXPL = {
+  die7: { zh: '掷一枚均匀骰子，出现 7 点。', calc: '骰子只有 1–6，事件不可能：P = 0。测的是 Jev 对"语义上的不可能"能否给出接近 0 的值。' },
+  d36: { zh: '掷两枚骰子，都是 6 点。', calc: '两次独立事件相乘：(1/6)² = 1/36 ≈ 2.8%。' },
+  ace: { zh: '52 张牌抽一张，是 A。', calc: '4/52 = 1/13 ≈ 7.7%。与 notace 配对，检验正反问是否和为 1。' },
+  digit: { zh: '0–9 随机取一个数字，是 7。', calc: '1/10 = 10%。' },
+  '3heads': { zh: '抛三次硬币全是正面。', calc: '(1/2)³ = 1/8 = 12.5%。' },
+  die1: { zh: '掷一枚骰子出现 1 点。', calc: '1/6 ≈ 16.7%。B 组两道锚定题用它做基线。' },
+  '2heads': { zh: '抛两次硬币都是正面。', calc: '(1/2)² = 25%。与 heart 同为 25%，但叙述不同——比较两者可看出"形状"影响。' },
+  heart: { zh: '52 张牌抽一张，是红桃。', calc: '13/52 = 25%。' },
+  coin: { zh: '抛一次硬币，正面。', calc: '50%。曲线中点锚。' },
+  mere24: { zh: '一对骰子掷 24 次，至少出现一次双六。', calc: '德·梅雷问题 II：1 − (35/36)²⁴ ≈ 49.1%。1654 年梅雷以为 24 次够（>50%），帕斯卡算出不够。' },
+  mere4: { zh: '一枚骰子掷 4 次，至少出现一次 6。', calc: '德·梅雷问题 I：1 − (5/6)⁴ ≈ 51.8%。人类直觉常用 4×1/6 ≈ 67% 的错误加法。' },
+  die_le5: { zh: '掷骰子，点数 ≤ 5。', calc: '5/6 ≈ 83.3%。' },
+  le90: { zh: '1–100 随机取整数，≤ 90。', calc: '90%。' },
+  notace: { zh: '52 张牌抽一张，不是 A。', calc: '48/52 = 12/13 ≈ 92.3%。与 ace 之和应为 1。' },
+  die_le6: { zh: '掷骰子，点数 ≤ 6。', calc: '必然事件：P = 1。测"语义上的必然"。' },
+  br_famous: { zh: '某病患病率 1/1000。检测灵敏度 100%，假阳性率 5%。随机一人检测阳性，他真的患病的概率？', why: '基率谬误：人只看"检测 95% 准"，忽略患病率极低——阳性里绝大多数是 999 个健康人里的 5% 假阳性（≈50 人），而真阳性只有 1 人。', calc: '贝叶斯：P = 0.001×1 / (0.001×1 + 0.999×0.05) = 0.001/0.05095 ≈ 1.96%。', src: 'Casscells, Schoenberger & Graboys 1978（NEJM）：哈佛医学院 60 名师生，只有 11 人答对，众数答案 95%。' },
+  br_novel: { zh: '患病率 0.2%，灵敏度 90%，假阳性率 3%。阳性者真患病的概率？', why: '同上，但数字换成不常见的组合，防止 Jev 只是记住了"1.96%"或"2%"这个著名答案。', calc: 'P = 0.002×0.9 / (0.002×0.9 + 0.998×0.03) = 0.0018/0.03174 ≈ 5.67%。', src: '人类典型值取"≈灵敏度减一点"（87%），是同类研究里的常见模式。' },
+  br_freq: { zh: '1 万人里 20 人患病，其中 18 人阳性；9980 名健康人里 299 人阳性。一名阳性者真患病的概率？', why: 'Gigerenzer 的"自然频率"格式：把同一道题用人数而不是百分比表述，人类答对率从 ~16% 升到 ~46%。如果 Jev 也受格式影响，说明它和人一样在"数人头"而不是算贝叶斯。', calc: '18 / (18 + 299) = 18/317 ≈ 5.68%（和 br_novel 是同一道题）。', src: 'Gigerenzer & Hoffrage 1995（Psychological Review）。' },
+  linda_A: { zh: 'Linda，31 岁，单身，直言、聪明，哲学专业，学生时代关心歧视与社会正义，参加过反核示威。她是银行柜员。', why: '合取谬误的"边缘"命题。单看这句，和 Linda 的描述不太搭，人会给低概率。', calc: '无精确值；约束是 P(柜员) ≥ P(柜员 ∧ 女权)。', src: 'Tversky & Kahneman 1983（Psychological Review）。' },
+  linda_AB: { zh: '（同上描述）她是银行柜员，并且积极参与女权运动。', why: '合取谬误：加上"女权运动"后，命题更像 Linda（代表性启发），85% 的人把它排在"只是柜员"之上——但 A∧B 是 A 的子集，概率不可能更高。', calc: '约束：P(A∧B) ≤ P(A)。派生检验直接比较两行。', src: '同上；85% 的被试出现合取谬误。' },
+  bill_A: { zh: 'Bill，34 岁，聪明但缺乏想象力，强迫型，无趣。上学时数学强、社科人文弱。他业余玩爵士乐。', why: '合取谬误第二组（防止只对 Linda 有记忆）。"玩爵士"不像 Bill，单独给低概率。', calc: '约束同 Linda。', src: 'Tversky & Kahneman 1983。' },
+  bill_AB: { zh: '（同上描述）他是会计，业余玩爵士乐。', why: '"会计"很像 Bill，把不像的"爵士"包进去后整体变像了——多数人排在"只玩爵士"之上。', calc: '约束：P(A∧B) ≤ P(A)。', src: '同上。' },
+  gambler: { zh: '均匀硬币连续 6 次正面，下一次是反面的概率？', why: '赌徒谬误：觉得"该出反面了"。独立事件没有记忆。', calc: '50%。', src: '经典；人类典型值 >0.5 取 0.6 作代表。' },
+  hothand: { zh: '（同上）下一次是正面的概率？', why: '热手谬误，赌徒谬误的镜像："正面势头正旺"。两题之和必须等于 1——检验 Jev 内部一致性。', calc: '50%。', src: '同上。' },
+  surv_one: { zh: '基金经理每年跑赢市场与否是独立的公平硬币。这位经理连续 10 年跑赢的概率？', why: '这题人类大致能答对（"很小"）。它的作用是和下一题配对。', calc: '(1/2)¹⁰ = 1/1024 ≈ 0.098%。', src: '—' },
+  surv_many: { zh: '1 万名经理，每人每年独立公平硬币。至少一人连续 10 年跑赢的概率？', why: '幸存者偏差 / 多重比较：看到某人 10 连胜就归因于能力，忽略了有 1 万个人在抛硬币——几乎必然有人碰上。人类直觉给低值。', calc: '1 − (1 − 1/1024)¹⁰⁰⁰⁰ = 1 − e^(−9.77) ≈ 99.994%。', src: '人类典型值 0.15 为保守估计；文献里这类题多数人答"不太可能"。' },
+  monty3: { zh: '三扇门，一车两羊。你选一扇，知情的主持人打开另一扇羊门，你换到剩下那扇。赢车的概率？', why: '最著名的反直觉题：~85% 的人认为剩两扇门各 50%。错在忽略了主持人"知情且必开羊门"带来的信息。', calc: '初选中车 1/3（换必输）；初选中羊 2/3（主持人被迫排除另一只羊，换必中）→ 2/3。', src: 'Granberg & Brown 1995：87% 的被试选择不换。' },
+  monty100: { zh: '100 扇门，一车 99 羊。你选一扇，主持人打开其余 98 扇羊门，你换到最后那扇。赢车的概率？', why: '结构与 3 门相同但不出名。人类直觉仍是 50/50。如果 Jev 3 门对、100 门错 → 它只是记住了"2/3"这个数（H2）。', calc: '初选中车 1/100；否则换必中 → 99/100 = 99%。', src: '—' },
+  prisoners: { zh: '三囚徒 A、B、C，随机一人获赦。A 请狱卒说出 B、C 中一个必死的人（若两人都死则随机说一个），狱卒说"B 死"。A 获赦的概率？', why: '三囚徒问题（Gardner 1959），和蒙提霍尔数学同构，但叙事不同、也不如它出名。经典错答 1/2。是 H2 的最强探针。', calc: 'A 的概率不因狱卒的话改变（狱卒总能说出一个）：仍是 1/3；C 变成 2/3。', src: 'Gardner, Scientific American 1959。' },
+  bday23: { zh: '23 人的房间，至少两人同一天生日的概率？', why: '生日悖论：人类用 23/365 ≈ 6% 的线性直觉，忽略了 253 个"配对"。', calc: '1 − 365×364×…×343 / 365²³ ≈ 50.7%。', src: '"23 人就过半"是科普里最常被引用的数字——著名版。' },
+  bday30: { zh: '30 人。', why: '不出名的 n。如果 Jev 只记住了"23 → 50%"，30 人会答错。', calc: '≈ 70.6%。', src: '—' },
+  bday50: { zh: '50 人。', why: '同上，数值接近 1。', calc: '≈ 97.0%。', src: '—' },
+  twochild: { zh: '一家两个孩子，已知至少一个是男孩。两个都是男孩的概率？', why: '两孩问题：直觉说"另一个 50%"。错在"至少一个男孩"排除的是 GG，剩 {BB, BG, GB} 三种等可能。', calc: '1/3。', src: 'Gardner 1959；经典错答 1/2。' },
+  frame_pos: { zh: '某手术存活率 90%。病人存活的概率？', why: '框架效应对照组 A。', calc: '90%。', src: 'McNeil et al. 1982（NEJM）：同一手术用"存活 90%"和"死亡 10%"描述，医生的选择率显著不同。' },
+  frame_neg: { zh: '某手术死亡率 10%。病人存活的概率？', why: '框架效应对照组 B：同一事件的负面表述。人类会被措辞影响，模型不应该。', calc: '90%，应与上一行相等。', src: '同上。' },
+  anchor_hi: { zh: '（题干先说"调查显示 85% 的人喜欢披萨"）另掷一枚骰子，出现 1 点的概率？', why: '锚定：无关的高数字会把人的估计拉高。对照 A 组 die1。官方文档也承认"无关 state 会分散注意力"。', calc: '1/6 ≈ 16.7%。', src: 'Tversky & Kahneman 1974 的转盘实验。' },
+  anchor_lo: { zh: '（题干先说"2% 的人喜欢凤尾鱼"）另掷一枚骰子，出现 1 点的概率？', why: '锚定，低锚。三个值（基线 / 高锚 / 低锚）应相等。', calc: '1/6。', src: '同上。' },
+};
 const biasR = {};
+let biasOpen = null;
+function explRow(k, cols) {
+  const e = BIAS_EXPL[k]; if (!e) return '';
+  return `<tr class="det" data-det="${k}" ${biasOpen === k ? '' : 'hidden'}><td colspan="${cols}" style="background:var(--bg);font-size:12px;line-height:1.6">
+    <div><b>题目</b>：${esc(e.zh)}</div>${e.why ? `<div><b>偏差机制</b>：${esc(e.why)}</div>` : ''}<div><b>精确推导</b>：${esc(e.calc)}</div>${e.src ? `<div><b>人类数据出处</b>：${esc(e.src)}</div>` : ''}</td></tr>`;
+}
+function wireExpl(tbody) { $$('tr[data-k]', tbody).forEach(tr => { tr.style.cursor = 'pointer'; tr.onclick = () => { const k = tr.dataset.k; biasOpen = biasOpen === k ? null : k; $$('tr.det', tbody).forEach(d => d.hidden = d.dataset.det !== biasOpen); }; }); }
 $('#biasReqDemo').textContent = JSON.stringify({ model: 'jev-latest', state: { problem: BIAS_A[5][1], statement: BIAS_A[5][2] }, questions: { p: { type: 'noul', instructions: BIAS_INSTR.en } } }, null, 2);
 
 async function biasNoul(problem, statement, lang = 'en') {
@@ -1092,8 +1160,9 @@ async function biasNoul(problem, statement, lang = 'en') {
 const pct = v => v == null ? '—' : (v * 100).toFixed(1) + '%';
 const closer = (j, ex, hu) => (ex == null || hu == null) ? '' : Math.abs(j - hu) < Math.abs(j - ex) ? '<span class="closer-h">人类</span>' : '<span class="closer-e">精确</span>';
 function renderBiasA() {
-  $('#biasA').innerHTML = BIAS_A.map(([k, , s, ex]) => { const j = biasR[k];
-    return `<tr class="${j == null ? 'pend' : ''}"><td title="${esc(BIAS_A.find(x => x[0] === k)[1])}">${esc(s)}</td><td class="m ex">${pct(ex)}</td><td class="m">${pct(j)}</td><td class="m">${j == null ? '' : ((j - ex) * 100).toFixed(0).replace(/^(\d)/, '+$1') + ' pt'}</td></tr>`; }).join('');
+  $('#biasA').innerHTML = BIAS_A.map(([k, p, s, ex]) => { const j = biasR[k];
+    return `<tr class="${j == null ? 'pend' : ''}" data-k="${k}"><td title="${esc(p)}">${esc(s)}</td><td class="m ex">${pct(ex)}</td><td class="m">${pct(j)}</td><td class="m">${j == null ? '' : ((j - ex) * 100).toFixed(0).replace(/^(\d)/, '+$1') + ' pt'}</td></tr>` + explRow(k, 4); }).join('');
+  wireExpl($('#biasA')); biasAnalyze();
   const P = 34, W = 320 - P - 10, x = v => P + v * W, y = v => 320 - P - v * W;
   const pts = BIAS_A.filter(([k]) => biasR[k] != null);
   $('#biasScatter').innerHTML = `<line x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(1)}" stroke="var(--line)" stroke-dasharray="4 3"/>
@@ -1104,7 +1173,8 @@ function renderBiasA() {
 }
 function renderBiasB() {
   $('#biasB').innerHTML = BIAS_B.map(([k, bias, p, s, ex, hu, note]) => { const j = biasR[k];
-    return `<tr class="${j == null ? 'pend' : ''}"><td title="${esc(p)}\n\n→ ${esc(s)}">${esc(bias)}${note ? `<div class="muted" style="font-size:11px">${esc(note)}</div>` : ''}</td><td class="m ex">${pct(ex)}</td><td class="m hu">${pct(hu)}</td><td class="m"><b>${pct(j)}</b></td><td>${j == null ? '' : closer(j, ex, hu)}</td></tr>`; }).join('');
+    return `<tr class="${j == null ? 'pend' : ''}" data-k="${k}"><td title="${esc(p)}\n\n→ ${esc(s)}">${esc(bias)}${note ? `<div class="muted" style="font-size:11px">${esc(note)}</div>` : ''}</td><td class="m ex">${pct(ex)}</td><td class="m hu">${pct(hu)}</td><td class="m"><b>${pct(j)}</b></td><td>${j == null ? '' : closer(j, ex, hu)}</td></tr>` + explRow(k, 5); }).join('');
+  wireExpl($('#biasB')); biasAnalyze();
   const j = biasR, f = v => v == null ? '—' : v.toFixed(2);
   if (BIAS_B.every(([k]) => j[k] != null)) $('#biasChecks').innerHTML = [
     ['合取 Linda', `P(A∧B)=${f(j.linda_AB)} vs P(A)=${f(j.linda_A)} → ${j.linda_AB > j.linda_A ? '<b style="color:var(--bad)">出现合取谬误</b>' : '<b style="color:var(--ok)">一致</b>'}`],
@@ -1116,6 +1186,43 @@ function renderBiasB() {
     ['生日家族', `n=23 ${f(j.bday23)}（.507）· n=30 ${f(j.bday30)}（.706）· n=50 ${f(j.bday50)}（.970）`],
     ['A + 非A', j.ace != null ? `抽到A ${f(j.ace)} + 没抽到A ${f(j.notace)} = ${f(j.ace + j.notace)}（应为 1.00）` : '需要先跑 A 组'],
   ].map(([k, v]) => `<span class="k">${k}</span><span class="v">${v}</span>`).join('');
+}
+function biasAnalyze() {
+  const j = biasR, box = $('#biasLive') || (() => { $('#biasAnalysis').insertAdjacentHTML('afterbegin', '<div id="biasLive"></div>'); return $('#biasLive'); })();
+  const aDone = BIAS_A.filter(([k]) => j[k] != null), bDone = BIAS_B.filter(([k]) => j[k] != null);
+  if (!aDone.length && !bDone.length) { box.innerHTML = ''; return; }
+  const out = [`<h4 style="margin:0 0 6px">本次运行（${esc(modelSel.value)} · 每题 ${$('#biasRep').value} 次）</h4>`];
+  if (aDone.length >= 5) {
+    const band = (lo, hi) => aDone.filter(([, , , ex]) => ex >= lo && ex < hi);
+    const mean = arr => arr.length ? arr.reduce((s, [k, , , ex]) => s + (j[k] - ex), 0) / arr.length : null;
+    const lowB = band(0.001, 0.25), midB = band(0.25, 0.75), hiB = band(0.75, 0.999);
+    const sorted = [...aDone].sort((a, b) => a[3] - b[3]); let inv = 0;
+    for (let x = 0; x < sorted.length; x++) for (let y = x + 1; y < sorted.length; y++) if (sorted[y][3] - sorted[x][3] > 0.02 && j[sorted[y][0]] < j[sorted[x][0]] - 0.02) inv++;
+    const f = v => v == null ? '—' : (v > 0 ? '+' : '') + (v * 100).toFixed(0) + ' pt';
+    out.push(`<div class="small"><b>A 组响应曲线</b>（${aDone.length}/15）：平均偏差 低段 p&lt;0.25 <b class="m">${f(mean(lowB))}</b> · 中段 <b class="m">${f(mean(midB))}</b> · 高段 p&gt;0.75 <b class="m">${f(mean(hiB))}</b>；单调性违反 <b class="m">${inv}</b> 对${j.die7 != null ? `；语义端点 0→${j.die7.toFixed(2)}` : ''}${j.die_le6 != null ? `，1→${j.die_le6.toFixed(2)}` : ''}。` +
+      (mean(lowB) > 0.05 ? ' → 低端被系统性抬高，<b>H3 压缩效应存在</b>。' : ' → 低端偏差不大。') + '</div>');
+  }
+  if (bDone.length >= 5) {
+    const scored = bDone.filter(([, , , , ex, hu]) => ex != null && hu != null && Math.abs(ex - hu) > 0.05);
+    const toHuman = scored.filter(([k, , , , ex, hu]) => Math.abs(j[k] - hu) < Math.abs(j[k] - ex));
+    out.push(`<div class="small"><b>B 组偏差探针</b>（${bDone.length}/22）：人类与精确分歧 &gt;5 pt 的 ${scored.length} 题里，Jev 更接近人类的有 <b class="m">${toHuman.length}</b> 题${toHuman.length ? '（' + toHuman.map(x => esc(x[1])).join('、') + '）' : ''}，更接近精确的有 <b class="m">${scored.length - toHuman.length}</b> 题。` +
+      (toHuman.length <= scored.length * 0.25 ? ' → <b>H1 不成立</b>：Jev 没有复现人类的经典偏差。' : toHuman.length >= scored.length * 0.6 ? ' → <b>H1 得到支持</b>。' : ' → 混合，逐题看。') + '</div>');
+    const fam = [];
+    if (j.monty3 != null && j.monty100 != null && j.prisoners != null) fam.push(`蒙提霍尔同构：3 门 ${Math.abs(j.monty3 - 2/3) < 0.1 ? '✓' : '✗'}、100 门 ${Math.abs(j.monty100 - 0.99) < 0.1 ? '✓' : '✗'}、三囚徒 ${Math.abs(j.prisoners - 1/3) < 0.1 ? '✓' : '✗'}` + (Math.abs(j.monty3 - 2/3) < 0.1 && Math.abs(j.prisoners - 1/3) >= 0.1 ? '（著名版对、改叙事错 → <b>H2 弱证据</b>）' : ''));
+    if (j.bday23 != null && j.bday30 != null && j.bday50 != null) fam.push(`生日同构：23 ${Math.abs(j.bday23 - .507) < 0.1 ? '✓' : '✗'}、30 ${Math.abs(j.bday30 - .706) < 0.1 ? '✓' : '✗'}、50 ${Math.abs(j.bday50 - .970) < 0.1 ? '✓' : '✗'}`);
+    if (j.br_famous != null && j.br_novel != null) fam.push(`基率：著名版 ${j.br_famous.toFixed(2)} vs 陌生数字版 ${j.br_novel.toFixed(2)}（人类 0.95/0.87）→ ${j.br_famous < 0.4 && j.br_novel < 0.4 ? '两版都远离人类答案' : '至少一版靠近人类答案'}`);
+    if (fam.length) out.push(`<div class="small"><b>同构对（H2 检验，±10 pt 算对）</b>：${fam.join('；')}。</div>`);
+    const cons = [];
+    if (j.linda_A != null && j.linda_AB != null) cons.push(`合取 Linda ${j.linda_AB <= j.linda_A ? '✓' : '✗ 谬误'}`);
+    if (j.bill_A != null && j.bill_AB != null) cons.push(`合取 Bill ${j.bill_AB <= j.bill_A ? '✓' : '✗ 谬误'}`);
+    if (j.gambler != null && j.hothand != null) cons.push(`赌徒+热手 = ${(j.gambler + j.hothand).toFixed(2)} ${Math.abs(j.gambler + j.hothand - 1) < 0.05 ? '✓' : '✗'}`);
+    if (j.frame_pos != null && j.frame_neg != null) cons.push(`框架差 ${Math.abs(j.frame_pos - j.frame_neg).toFixed(2)} ${Math.abs(j.frame_pos - j.frame_neg) < 0.05 ? '✓' : '✗'}`);
+    if (j.die1 != null && j.anchor_hi != null && j.anchor_lo != null) cons.push(`锚定极差 ${(Math.max(j.die1, j.anchor_hi, j.anchor_lo) - Math.min(j.die1, j.anchor_hi, j.anchor_lo)).toFixed(2)} ${Math.max(j.die1, j.anchor_hi, j.anchor_lo) - Math.min(j.die1, j.anchor_hi, j.anchor_lo) < 0.05 ? '✓' : '✗'}`);
+    if (j.ace != null && j.notace != null) cons.push(`A+非A = ${(j.ace + j.notace).toFixed(2)} ${Math.abs(j.ace + j.notace - 1) < 0.05 ? '✓' : '✗（小概率侧抬高所致）'}`);
+    if (cons.length) out.push(`<div class="small"><b>内部一致性</b>：${cons.join(' · ')}。</div>`);
+  }
+  out.push('<hr style="border:0;border-top:1px solid var(--line);margin:10px 0">');
+  box.innerHTML = out.join('');
 }
 async function biasRun(list, render) {
   await Promise.all(list.map(async ([k, p, s]) => { try { biasR[k] = await biasNoul(p, s); } catch (e) { biasR[k] = null; $('#biasMsg').textContent = e.message; } render(); }));

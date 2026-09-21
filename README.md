@@ -16,3 +16,9 @@ API key 放在 `.env`（`TYPESAFE_API_KEY=...`）或环境变量里；`server.py
 - `server.py` — 零依赖代理（标准库）：`/` 静态页、`POST /api/systemone`、`GET /api/models`、`GET /api/health`；429/529 自动指数退避重试。
 - `index.html` — 单文件页面，原生 JS，无构建。
 - `.env` — API key（不要提交到 git）。
+
+## 页面 tab
+
+原理 · 三种类型 · Playground · 场景（新闻情绪 / 实时控制 / 五子棋判断 / 概率论解题）· 实验·认知偏差 · 优势与局限
+
+`experiments/biases.py` 是"实验·认知偏差" tab 的命令行版本，结果在 `experiments/results.md`。
